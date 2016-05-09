@@ -1,0 +1,13 @@
+#!/usr/bin/env coffee
+debug = require 'debug'
+log = debug 'app:log'
+errorLog = debug 'app:error'
+
+http = require 'http'
+app = require '../app'
+
+app.set 'port', process.env.PORT or 3000
+
+http.createServer(app).listen(app.get('port'), ->
+    log 'Express server listening on port ' + app.get 'port'
+)
