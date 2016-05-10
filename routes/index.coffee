@@ -2,17 +2,25 @@ debug = require 'debug'
 log = debug 'app:log'
 errorLog = debug 'app:error'
 
-fail = (msg) ->
-  errorLog msg
-  throw new Error msg
+fail = (err, res) ->
+  errorLog err
+  if typeof err is 'string'
+    msg = err
+    err = new Error err
+  else
+    msg = err.error
+  if res?
+    res.status(500).send msg
+  else
+    throw err
 
 express = require 'express'
 parse = require '../lib/pegg-parse'
 router = express.Router()
 
-validateClient = (secret) ->
+validateClient = (secret, res) ->
   if secret isnt CLIENT_SECRET
-    fail "invalid client secret, aborting"
+    fail "invalid client secret, aborting", res
 
 CLIENT_SECRET = process.env.CLIENT_SECRET or fail "cannot have an empty CLIENT_SECRET"
 
@@ -22,16 +30,20 @@ router.get '/', (req, res) ->
 
 ### New Card ###
 router.post '/card', (req, res) ->
-  res.setHeader('Content-Type', 'application/json');
-  validateClient req.body.secret
+  validateClient req.body.secret, res
   req.body.secret = undefined
 
   if req.body?.card?.objectId
     parse.updateCard req.body
-    res.send 'Updated'
+      .then =>
+        res.setHeader 'Content-Type', 'application/json'
+        res.send 'Updated'
+      .catch (err) => fail err, res
   else
     parse.createCard req.body
-    res.send 'Created'
-
+      .then =>
+        res.setHeader 'Content-Type', 'application/json'
+        res.send 'Created'
+      .catch (err) => fail err, res
 
 module.exports = router
