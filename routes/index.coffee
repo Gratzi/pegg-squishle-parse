@@ -6,7 +6,7 @@ fail = (msg) ->
   throw new Error msg
 
 express = require 'express'
-firebase = require '../lib/pegg-firebase-client'
+parse = require '../lib/pegg-parse'
 router = express.Router()
 
 validateClient = (secret) ->
@@ -19,40 +19,28 @@ CLIENT_SECRET = process.env.CLIENT_SECRET or fail "cannot have an empty CLIENT_S
 router.get '/', (req, res) ->
   res.render 'index', title: 'Express'
 
-
-#### New Card Created ###
-#router.post '/newCard', (req, res) ->
-#  validateClient req.body.secret
-#  req.body.secret = undefined
-#
-#  for friendId in req.body.friends
-#    firebase.child(friendId).child('newCard').update
-#      "#{req.body.cardId}":
-#        userId: req.body.userId
-#        dts: req.body.dts
-#
-#  msg = "submitting new card notification to firebase: "+ JSON.stringify req.body
-#  log msg
-#  res.send msg
-
-### New User Created ###
-router.post '/newUser', (req, res) ->
+### New Card ###
+router.post '/card', (req, res) ->
   validateClient req.body.secret
   req.body.secret = undefined
+  if req.body?.card?.objectId
+    parse.updateCard req.body
+  else
+    parse.createCard req.body
 
-  for friendId in req.body.friends
-    firebase.child('inbound').child(friendId).push
-      dts: req.body.dts
-      type: 'friendsUpdate'
-      friendId: req.body.userId
-  firebase.child('inbound').child(req.body.userId).push
-    dts: req.body.dts
-    type: 'friendsUpdate'
-
-
-  msg = "submitting new user notification to firebase: "+ JSON.stringify req.body
-  log msg
-  res.send msg
+  # for friendId in req.body.friends
+  #   firebase.child('inbound').child(friendId).push
+  #     dts: req.body.dts
+  #     type: 'friendsUpdate'
+  #     friendId: req.body.userId
+  # firebase.child('inbound').child(req.body.userId).push
+  #   dts: req.body.dts
+  #   type: 'friendsUpdate'
+  #
+  #
+  # msg = "submitting new user notification to firebase: "+ JSON.stringify req.body
+  # log msg
+  # res.send msg
 
 
 module.exports = router
