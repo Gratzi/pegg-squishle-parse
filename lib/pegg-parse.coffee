@@ -82,6 +82,7 @@ class PeggParse
       @update type: 'Card', id: cardId, object: card
 
   fetchGifphyDetails: (gifId) =>
+    log "fetching giphy details for #{gifId}"
     props =
       url: 'http://api.giphy.com/v1/gifs/' + gifId
       qs:
@@ -91,7 +92,7 @@ class PeggParse
       .catch (error) => errorLog error
 
   createCard: ({card}) =>
-    console.log "creating card"
+    log "creating card"
     cardId = null
     choices = card.choices
     card.choices = undefined
@@ -125,6 +126,8 @@ class PeggParse
           choice.card = undefined
         card.choices = _.keyBy choices, 'id'
         @update type: 'Card', id: cardId, object: card
+      .then =>
+        cardId: cardId
 
   createCosmicUnicorn: ->
     # { "results": [

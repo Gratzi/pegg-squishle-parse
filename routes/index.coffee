@@ -35,15 +35,15 @@ router.post '/card', (req, res) ->
 
   if req.body?.card?.objectId
     parse.updateCard req.body
-      .then =>
+      .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
-        res.send 'Updated'
+        res.send result
       .catch (err) => fail err, res
   else
     parse.createCard req.body
-      .then =>
+      .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
-        res.send 'Created'
+        res.send result
       .catch (err) => fail err, res
 
 module.exports = router
