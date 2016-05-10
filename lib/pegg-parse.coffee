@@ -4,7 +4,7 @@ _ = require 'lodash'
 debug = require 'debug'
 log = debug 'app:log'
 errorLog = debug 'app:error'
-request = require 'request'
+request = require 'request-promise'
 
 fail = (msg) ->
   errorLog msg
@@ -81,14 +81,14 @@ class PeggParse
       card.ACL = "*": read: true
       @update type: 'Card', id: cardId, object: card
 
-  updateGiphyDetails: (gifId, cb) =>
+  fetchGifphyDetails: (gifId) =>
     props =
       url: 'http://api.giphy.com/v1/gifs/' + gifId
       qs:
         api_key: 'dc6zaTOxFJmzC'
-    request props, (error, response, body) =>
-      if !error and response.statusCode == 200
-        cb JSON.parse body
+      json: true
+    request props
+      .catch (error) => errorLog error
 
   createCard: ({card}) =>
     console.log "creating card"
@@ -101,17 +101,18 @@ class PeggParse
         cardId = results.objectId
         Promise.all(
           for choice in choices then do (choice, cardId) =>
-            @updateGiphyDetails choice.gifId, (giphyDetails) =>
-              choice.image =
-                big: giphyDetails.data.images.original.url
-                meta:
-                  source: giphyDetails.data.source_post_url
-                  url: giphyDetails.data.url
-                small: giphyDetails.data.images.downsized.url
-                still: giphyDetails.data.images.original_still.url
-              choice.card = @_pointer 'Card', cardId
-              choice.ACL = "*": read: true
-              @create type: 'Choice', object: choice
+            @fetchGifphyDetails choice.gifId
+              .then (giphyDetails) =>
+                choice.image =
+                  big: giphyDetails.data.images.original.url
+                  meta:
+                    source: giphyDetails.data.source_post_url
+                    url: giphyDetails.data.url
+                  small: giphyDetails.data.images.downsized.url
+                  still: giphyDetails.data.images.original_still.url
+                choice.card = @_pointer 'Card', cardId
+                choice.ACL = "*": read: true
+                @create type: 'Choice', object: choice
         )
       .then (results) =>
         for choice, i in choices
