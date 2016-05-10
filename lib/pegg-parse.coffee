@@ -96,6 +96,10 @@ class PeggParse
     choices = card.choices
     card.choices = undefined
     card.ACL = "*": read: true
+    card.publishDate = {
+      "__type": "Date",
+      "iso": new Date().toJSON()
+    }
     @create type: 'Card', object: card
       .then (results) =>
         cardId = results.objectId
@@ -121,6 +125,39 @@ class PeggParse
           choice.card = undefined
         card.choices = _.keyBy choices, 'id'
         @update type: 'Card', id: cardId, object: card
+
+  createCosmicUnicorn: ->
+    # { "results": [
+    #     {
+    #         "ACL": {
+    #             "*": {
+    #                 "read": true
+    #             },
+    #             "role:vVTsQaGIu2_Friends": {
+    #                 "read": true
+    #             },
+    #             "vVTsQaGIu2": {
+    #                 "read": true,
+    #                 "write": true
+    #             }
+    #         },
+    #         "age_range": {
+    #             "min": 21
+    #         },
+    #         "avatar_url": "https://graph.facebook.com/100006151097293/picture",
+    #         "facebook_id": "100006151097293",
+    #         "first_name": "Cosmic",
+    #         "gender": "male",
+    #         "isActive": true,
+    #         "last_name": "Unicorn",
+    #         "last_pref_date": {
+    #             "__type": "Date",
+    #             "iso": "2016-05-07T00:05:28.867Z"
+    #         },
+    #         "objectId": "vVTsQaGIu2",
+    #         "username": "cosmic"
+    #     }
+    # ] }
 
   updateBatchRecursive: (requests, offset) ->
     newOffset = offset + 50 # max batch size
