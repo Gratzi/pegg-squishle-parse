@@ -4,6 +4,8 @@ _ = require 'lodash'
 debug = require 'debug'
 log = debug 'app:log'
 errorLog = debug 'app:error'
+request = require 'request'
+
 fail = (msg) ->
   errorLog msg
   throw new Error msg
@@ -75,9 +77,18 @@ class PeggParse
               choice.card = undefined
             .reflect()
     ).then =>
-      card.choices = _.indexBy choices, 'objectId'
+      card.choices = _.keyBy choices, 'objectId'
       card.ACL = "*": read: true
       @update type: 'Card', id: cardId, object: card
+
+  updateGiphyDetails: (gifId, cb) =>
+    props =
+      url: 'http://api.giphy.com/v1/gifs/' + gifId
+      qs:
+        api_key: 'dc6zaTOxFJmzC'
+    request props, (error, response, body) =>
+      if !error and response.statusCode == 200
+        cb JSON.parse body
 
   createCard: ({card}) =>
     console.log "creating card"
@@ -90,15 +101,24 @@ class PeggParse
         cardId = results.objectId
         Promise.all(
           for choice in choices then do (choice, cardId) =>
-            choice.card = @_pointer 'Card', cardId
-            @create type: 'Choice', object: choice
+            @updateGiphyDetails choice.gifId, (giphyDetails) =>
+              choice.image =
+                big: giphyDetails.data.images.original.url
+                meta:
+                  source: giphyDetails.data.source_post_url
+                  url: giphyDetails.data.url
+                small: giphyDetails.data.images.downsized.url
+                still: giphyDetails.data.images.original_still.url
+              choice.card = @_pointer 'Card', cardId
+              choice.ACL = "*": read: true
+              @create type: 'Choice', object: choice
         )
       .then (results) =>
         for choice, i in choices
           choice.id = results[i].objectId
           choice.cardId = cardId
           choice.card = undefined
-        card.choices = _.indexBy choices, 'id'
+        card.choices = _.keyBy choices, 'id'
         @update type: 'Card', id: cardId, object: card
 
   updateBatchRecursive: (requests, offset) ->
