@@ -33,7 +33,7 @@ router.post '/card', (req, res) ->
   validateClient req.body.secret, res
   req.body.secret = undefined
 
-  if req.body?.card?.objectId
+  if req.body?.card?.id
     parse.updateCard req.body
       .then (result) =>
         res.setHeader 'Content-Type', 'application/json'

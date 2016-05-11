@@ -52,44 +52,43 @@ class PeggParse
         log 'cardLoaded', results
 
   updateCard: ({card}) =>
-    cardId = card.objectId
+    cardId = card.id
     console.log "updating card #{cardId}"
     card = card
     choices = card.choices
     Promise.all(
       for choice, i in choices then do (choice, i, cardId) =>
         choice.card = @_pointer 'Card', cardId
-        if _.isEmpty choice.objectId
-          @create type: 'Choice', object: choice
-            .then (result) =>
-              choice.objectId = result.objectId
-              choice.cardId = cardId
-              choice.card = undefined
-            .reflect()
-        else if _.isEmpty choice.text
-          delete choices[i]
-          @delete type: 'Choice', id: choice.objectId
-            .reflect()
-        else
-          @update type: 'Choice', id: choice.objectId, object: choice
-            .then (result) =>
-              choice.cardId = cardId
-              choice.card = undefined
-            .reflect()
+        @fetchGifphyDetails choice.gifId
+          .then (giphyDetails) =>
+            choice.image = giphyDetails
+            choice.ACL = "*": read: true
+            if _.isEmpty choice.id
+              @create type: 'Choice', object: choice
+                .then (result) =>
+                  choice.id = result.objectId
+                  choice.cardId = cardId
+                  choice.card = undefined
+                  choice.ACL = undefined
+                .reflect()
+            else if _.isEmpty choice.text
+              delete choices[i]
+              @delete type: 'Choice', id: choice.id
+                .reflect()
+            else
+              @update type: 'Choice', id: choice.id, object: choice
+                .then (result) =>
+                  choice.cardId = cardId
+                  choice.card = undefined
+                  choice.ACL = undefined
+                .reflect()
     ).then =>
-      card.choices = _.keyBy choices, 'objectId'
+      card.choices = _.keyBy choices, 'id'
       card.ACL = "*": read: true
       @update type: 'Card', id: cardId, object: card
-
-  fetchGifphyDetails: (gifId) =>
-    log "fetching giphy details for #{gifId}"
-    props =
-      url: 'http://api.giphy.com/v1/gifs/' + gifId
-      qs:
-        api_key: 'dc6zaTOxFJmzC'
-      json: true
-    request props
-      .catch (error) => errorLog error
+    .then =>
+      cardId: cardId
+      choices: _.map card.choices, 'id'
 
   createCard: ({card}) =>
     log "creating card"
@@ -108,13 +107,7 @@ class PeggParse
           for choice in choices then do (choice, cardId) =>
             @fetchGifphyDetails choice.gifId
               .then (giphyDetails) =>
-                choice.image =
-                  big: giphyDetails.data.images.original.url
-                  meta:
-                    source: giphyDetails.data.source_post_url
-                    url: giphyDetails.data.url
-                  small: giphyDetails.data.images.downsized.url
-                  still: giphyDetails.data.images.original_still.url
+                choice.image = giphyDetails
                 choice.card = @_pointer 'Card', cardId
                 choice.ACL = "*": read: true
                 @create type: 'Choice', object: choice
@@ -124,10 +117,29 @@ class PeggParse
           choice.id = results[i].objectId
           choice.cardId = cardId
           choice.card = undefined
+          choice.ACL = undefined
         card.choices = _.keyBy choices, 'id'
         @update type: 'Card', id: cardId, object: card
       .then =>
         cardId: cardId
+        choices: _.map card.choices, 'id'
+
+  fetchGifphyDetails: (gifId) =>
+    log "fetching giphy details for #{gifId}"
+    props =
+      url: 'http://api.giphy.com/v1/gifs/' + gifId
+      qs:
+        api_key: 'dc6zaTOxFJmzC'
+      json: true
+    request props
+      .catch (error) => errorLog error
+      .then (result) =>
+        big: result.data.images.original.url
+        meta:
+          source: result.data.source_post_url
+          url: result.data.url
+        small: result.data.images.downsized.url
+        still: result.data.images.original_still.url
 
   createCosmicUnicorn: ->
     # { "results": [
