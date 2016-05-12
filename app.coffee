@@ -20,13 +20,22 @@ app.use cookieParser()
 app.use express.static path.join(__dirname, 'public')
 app.use '/', routes
 
+### redirect to HTTPS in production ###
+forceSsl = (req, res, next) ->
+  if req.headers['x-forwarded-proto'] != 'https'
+    res.redirect(['https://', req.get('Host'), req.url].join(''))
+  next()
+
+if app.get('env') == 'production'
+  app.use forceSsl
+
+# error handlers
+
 # catch 404 and forward to error handler
 app.use (req, res, next) ->
   err = new Error 'Not Found'
   err.status = 404
   next err
-
-# error handlers
 
 # development error handler
 # will print stacktrace
