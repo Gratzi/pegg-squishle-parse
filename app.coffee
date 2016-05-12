@@ -7,6 +7,15 @@ bodyParser = require 'body-parser'
 routes = require './routes/index'
 app = express()
 
+### redirect to HTTPS in production ###
+forceSsl = (req, res, next) ->
+  if req.headers['x-forwarded-proto'] != 'https'
+    res.redirect(['https://', req.get('Host'), req.url].join(''))
+  next()
+
+if app.get('env') == 'production'
+  app.use forceSsl
+
 # view engine setup
 app.set 'views', path.join __dirname, 'views'
 app.set 'view engine', 'jade'
@@ -19,15 +28,6 @@ app.use bodyParser.urlencoded extended: false
 app.use cookieParser()
 app.use express.static path.join(__dirname, 'public')
 app.use '/', routes
-
-### redirect to HTTPS in production ###
-forceSsl = (req, res, next) ->
-  if req.headers['x-forwarded-proto'] != 'https'
-    res.redirect(['https://', req.get('Host'), req.url].join(''))
-  next()
-
-if app.get('env') == 'production'
-  app.use forceSsl
 
 # error handlers
 
