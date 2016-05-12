@@ -11,8 +11,7 @@ fail = (err, res) ->
     msg = err.error
   if res?
     res.status(500).send msg
-  else
-    throw err
+  throw err
 
 express = require 'express'
 parse = require '../lib/pegg-parse'
