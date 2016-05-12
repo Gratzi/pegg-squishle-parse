@@ -9,8 +9,6 @@ fail = (err, res) ->
     err = new Error err
   else
     msg = err.error
-  if res?
-    res.status(500).send msg
   throw err
 
 express = require 'express'
