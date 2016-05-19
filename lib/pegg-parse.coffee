@@ -110,8 +110,11 @@ class PeggParse
       @update type: 'Card', id: cardId, object: card
     .then =>
       log "updated card #{cardId}"
-      cardId: cardId
-      choices: _.map card.choices, 'id'
+      result =
+        cardId: cardId
+        choices: _.map card.choices, 'id'
+      log "result:", @pretty result
+      result
 
   createCard: ({card}) =>
     log "creating card"
@@ -140,13 +143,17 @@ class PeggParse
           choice.cardId = cardId
           choice.card = undefined
           choice.ACL = undefined
-        parseCard.set 'choices', _.keyBy choices, 'id'
+        card.choices = _.keyBy choices, 'id'
+        parseCard.set 'choices', card.choices
         parseCard.save null, { useMasterKey: true }
       .then =>
         log "created card #{cardId}"
         debug @pretty parseCard
-        cardId: cardId
-        choices: _.map card.choices, 'id'
+        result =
+          cardId: cardId
+          choices: _.map card.choices, 'id'
+        log "result:", @pretty result
+        result
 
   fetchGifphyDetails: (gifId) =>
     log "fetching giphy details for #{gifId}"
