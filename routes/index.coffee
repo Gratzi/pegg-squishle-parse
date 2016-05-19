@@ -2,13 +2,10 @@ debug = require 'debug'
 log = debug 'app:log'
 errorLog = debug 'app:error'
 
-fail = (err, res) ->
-  errorLog err
+fail = (err) ->
   if typeof err is 'string'
-    msg = err
     err = new Error err
-  else
-    msg = err.error
+  errorLog err
   throw err
 
 express = require 'express'
