@@ -18,8 +18,8 @@ router.get '/', (req, res) ->
 
 ### New Card ###
 router.post '/card', (req, res) ->
-  log req
-  res.send()
+  log req.body
+  res.send 200
 
 #  if req.body?.card?.id
 #    parse.updateCard req.body
