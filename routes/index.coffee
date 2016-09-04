@@ -1,6 +1,7 @@
 debug = require 'debug'
 log = debug 'app:log'
 errorLog = debug 'app:error'
+request = require 'request-promise'
 
 fail = (err) ->
   if typeof err is 'string'
@@ -19,9 +20,14 @@ router.get '/', (req, res) ->
 ### New Card ###
 router.post '/card', (req, res) ->
   log req.body
-  res.send 200
 
-#  if req.body?.card?.id
+  if req.body?.id
+    parse.createCard req.body.id
+      .then (result) =>
+        res.setHeader 'Content-Type', 'application/json'
+        res.send result
+      .catch (err) => fail err, res
+#
 #    parse.updateCard req.body
 #      .then (result) =>
 #        res.setHeader 'Content-Type', 'application/json'
