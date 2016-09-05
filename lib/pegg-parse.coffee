@@ -148,12 +148,12 @@ class PeggParse
                 @create type: 'Choice', object: choice
             )
           .then (parseChoices) =>
-            for choice, i in choices
+            for choice, i in post.choices
               choice.id = parseChoices[i].id
               choice.cardId = cardId
               choice.card = undefined
               choice.ACL = undefined
-            card.choices = _.keyBy choices, 'id'
+            card.choices = _.keyBy post.choices, 'id'
             parseCard.set 'choices', card.choices
             parseCard.save null, { useMasterKey: true }
           .then =>
