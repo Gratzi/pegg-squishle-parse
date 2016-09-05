@@ -22,7 +22,7 @@ router.post '/card', (req, res) ->
   log req.body
 
   if req.body?.id
-    parse.createCard req.body.id
+    parse.createCard req.body.id, req.body.category
       .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
         res.send result

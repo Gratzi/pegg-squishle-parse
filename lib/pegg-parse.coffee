@@ -125,40 +125,51 @@ class PeggParse
   #    {text:"third choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}},
   #    {text:"fourth choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}}
   #  ]
-  createCard: (postId) =>
+  createCard: (postId, category) =>
     log "creating card"
     @fetchPostData postId
-#    cardId = null
-#    parseCard = null
-#    choices = card.choices
-#    card.choices = undefined
-#    card.ACL = "*": read: true
-#    card.publishDate = new Date()
-#    @create type: 'Card', object: card
-#      .then (result) =>
-#        parseCard = result
-#        cardId = parseCard.id
-#        Promise.when(
-#          for choice in choices then do (choice, cardId) =>
-#            @create type: 'Choice', object: choice
-#        )
-#      .then (parseChoices) =>
-#        for choice, i in choices
-#          choice.id = parseChoices[i].id
-#          choice.cardId = cardId
-#          choice.card = undefined
-#          choice.ACL = undefined
-#        card.choices = _.keyBy choices, 'id'
-#        parseCard.set 'choices', card.choices
-#        parseCard.save null, { useMasterKey: true }
-#      .then =>
-#        log "created card #{cardId}"
-#        debug @pretty parseCard
-#        result =
-#          cardId: cardId
-#          choices: _.map card.choices, 'id'
-#        log "result:", @pretty result
-#        result
+      .then (post) =>
+        cardId = null
+        parseCard = null
+        card = {}
+        choices = [
+          {"text": post.answer1, "image": {"url": post.gif1}},
+          {"text": post.answer2, "image": {"url": post.gif2}},
+          {"text": post.answer3, "image": {"url": post.gif3}},
+          {"text": post.answer4, "image": {"url": post.gif4}}
+        ]
+        card.question = post.title.rendered
+        card.deck = category
+        card.choices = undefined
+        card.ACL = "*": read: true
+        card.publishDate = new Date()
+        @create type: 'Card', object: card
+          .then (result) =>
+            parseCard = result
+            cardId = parseCard.id
+            Promise.when(
+              for choice in choices then do (choice, cardId) =>
+                choice.card = @_pointer 'Card', cardId
+                choice.ACL = "*": read: true
+                @create type: 'Choice', object: choice
+            )
+          .then (parseChoices) =>
+            for choice, i in choices
+              choice.id = parseChoices[i].id
+              choice.cardId = cardId
+              choice.card = undefined
+              choice.ACL = undefined
+            card.choices = _.keyBy choices, 'id'
+            parseCard.set 'choices', card.choices
+            parseCard.save null, { useMasterKey: true }
+          .then =>
+            log "created card #{cardId}"
+            debug @pretty parseCard
+            result =
+              cardId: cardId
+              choices: _.map card.choices, 'id'
+            log "result:", @pretty result
+            result
 
   fetchGifphyDetails: (gifId) =>
     log "fetching giphy details for #{gifId}"
@@ -182,6 +193,7 @@ class PeggParse
       .catch (error) => errorLog error
       .then (result) =>
         console.log JSON.stringify result
+        return result
 
   createCosmicUnicorn: ->
     # { "results": [

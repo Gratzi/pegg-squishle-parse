@@ -1,0 +1,98 @@
+{
+  "id": 2444,
+  "date": "2016-09-04T20:25:25",
+  "date_gmt": "2016-09-04T20:25:25",
+  "guid": {
+    "rendered": "http://squishle.me/?p=2444"
+  },
+  "modified": "2016-09-04T21:38:22",
+  "modified_gmt": "2016-09-04T21:38:22",
+  "slug": "if-im-living-in-a-major-city-the-neighborhood-im-living-in-is",
+  "type": "post",
+  "link": "http://squishle.me/if-im-living-in-a-major-city-the-neighborhood-im-living-in-is/",
+  "title": {
+    "rendered": "If I’m living in a major city, the neighborhood I’m living in is:"
+  },
+  "content": {
+    "rendered": ""
+  },
+  "excerpt": {
+    "rendered": ""
+  },
+  "author": 3,
+  "featured_media": 0,
+  "comment_status": "open",
+  "ping_status": "open",
+  "sticky": false,
+  "format": "standard",
+  "categories": [
+    17
+  ],
+  "tags": [],
+  "answer1": "A trendy, artsy spot right outside of downtown.",
+  "gif1": "",
+  "answer2": "Right in the heart of downtown. As busy and lively as possible.",
+  "gif2": "",
+  "answer3": "In a quiet, very safe, suburbs-y area.",
+  "gif3": "",
+  "answer4": "A diverse, eclectic area that’s sketchy at night.",
+  "gif4": "",
+  "_links": {
+    "self": [
+      {
+        "href": "http://squishle.me/wp-json/wp/v2/post/2444"
+      }
+    ],
+    "collection": [
+      {
+        "href": "http://squishle.me/wp-json/wp/v2/post"
+      }
+    ],
+    "about": [
+      {
+        "href": "http://squishle.me/wp-json/wp/v2/types/post"
+      }
+    ],
+    "author": [
+      {
+        "embeddable": true,
+        "href": "http://squishle.me/wp-json/wp/v2/users/3"
+      }
+    ],
+    "replies": [
+      {
+        "embeddable": true,
+        "href": "http://squishle.me/wp-json/wp/v2/comments?post=2444"
+      }
+    ],
+    "version-history": [
+      {
+        "href": "http://squishle.me/wp-json/wp/v2/post/2444/revisions"
+      }
+    ],
+    "wp:attachment": [
+      {
+        "href": "http://squishle.me/wp-json/wp/v2/media?parent=2444"
+      }
+    ],
+    "wp:term": [
+      {
+        "taxonomy": "category",
+        "embeddable": true,
+        "href": "http://squishle.me/wp-json/wp/v2/categories?post=2444"
+      },
+      {
+        "taxonomy": "post_tag",
+        "embeddable": true,
+        "href": "http://squishle.me/wp-json/wp/v2/tags?post=2444"
+      }
+    ],
+    "curies": [
+      {
+        "name": "wp",
+        "href": "https://api.w.org/{rel}",
+        "templated": true
+      }
+    ]
+  }
+}
