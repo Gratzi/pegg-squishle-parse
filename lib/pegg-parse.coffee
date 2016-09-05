@@ -139,7 +139,7 @@ class PeggParse
           {"text": post.answer4, "image": {"url": post.gif4}}
         ]
         card.question = post.title.rendered
-        card.deck = JSON.parse categories
+        card.deck = JSON.parse(categories)[0]
         card.choices = undefined
         card.ACL = "*": read: true
         card.publishDate = new Date()
