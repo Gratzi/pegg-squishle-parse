@@ -84,7 +84,7 @@ class PeggParse
     Promise.when(
       for choice, i in choices then do (choice, i, cardId) =>
         choice.card = @_pointer 'Card', cardId
-        @fetchGifphyDetails choice.gifId
+        @fetchGiphyDetails choice.gifId
           .then (giphyDetails) =>
             choice.image = giphyDetails
             choice.ACL = "*": read: true
@@ -132,13 +132,7 @@ class PeggParse
         cardId = null
         parseCard = null
         card = {}
-        choices = [
-          {"text": post.answer1, "image": {"url": post.gif1}},
-          {"text": post.answer2, "image": {"url": post.gif2}},
-          {"text": post.answer3, "image": {"url": post.gif3}},
-          {"text": post.answer4, "image": {"url": post.gif4}}
-        ]
-        card.question = post.title.rendered
+        card.question = post.question
         card.deck = JSON.parse(categories)[0]
         card.choices = undefined
         card.ACL = "*": read: true
@@ -148,7 +142,7 @@ class PeggParse
             parseCard = result
             cardId = parseCard.id
             Promise.when(
-              for choice in choices then do (choice, cardId) =>
+              for choice in post.choices then do (choice, cardId) =>
                 choice.card = @_pointer 'Card', cardId
                 choice.ACL = "*": read: true
                 @create type: 'Choice', object: choice
@@ -171,19 +165,6 @@ class PeggParse
             log "result:", @pretty result
             result
 
-  fetchGifphyDetails: (gifId) =>
-    log "fetching giphy details for #{gifId}"
-    props =
-      url: 'http://api.giphy.com/v1/gifs/' + gifId
-      qs:
-        api_key: 'dc6zaTOxFJmzC'
-      json: true
-    request props
-      .catch (error) => errorLog error
-      .then (result) =>
-        url: result.data.images.original.url
-        source: result.data.source_post_url
-
   fetchPostData: (postId) =>
     log "fetching squishle post details for #{postId}"
     props =
@@ -192,10 +173,50 @@ class PeggParse
     request props
       .catch (error) => errorLog error
       .then (result) =>
-        console.log JSON.stringify result
-        return result
+        post = {}
+        post.choices = []
+        post.question = result.title.rendered
+        console.log result
+        for i in [1..4]
+          choice = {}
+          gifUrl = result["gif#{i}"]
+          console.log "gifUrl: #{gifUrl}"
+          gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
+          gifId = gifIdPattern.exec(gifUrl)[1]
+          console.log "gifId: #{gifId}"
+          if gifUrl.indexOf("giphy.com") > -1
+            choice.image =
+              url: "http://media3.giphy.com/media/#{gifId}/giphy.gif"
+              source: gifUrl
+          else if gifUrl.indexOf("imgur.com") > -1
+            choice.image =
+              url: "http://i.imgur.com/#{gifId}.mp4"
+              source: gifUrl
+          else
+            choice.image =
+              url: gifUrl
+              source: gifUrl
+          choice.text = result["answer#{i}"]
+          post.choices.push choice
+        console.log JSON.stringify post
+        return post
 
-  createCosmicUnicorn: ->
+
+#  fetchGiphyDetails: (gifId) =>
+#    log "fetching giphy details for #{gifId}"
+#    props =
+#      url: 'http://api.giphy.com/v1/gifs/' + gifId
+#      qs:
+#        api_key: 'dc6zaTOxFJmzC'
+#      json: true
+#    request props
+#    .catch (error) => errorLog error
+#    .then (result) =>
+#      url: result.data.images.original.url
+#      source: result.data.source_post_url
+
+
+#  createCosmicUnicorn: ->
     # { "results": [
     #     {
     #         "ACL": {
