@@ -125,7 +125,7 @@ class PeggParse
   #    {text:"third choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}},
   #    {text:"fourth choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}}
   #  ]
-  createCard: (postId, category) =>
+  createCard: (postId, categories) =>
     log "creating card"
     @fetchPostData postId
       .then (post) =>
@@ -139,7 +139,7 @@ class PeggParse
           {"text": post.answer4, "image": {"url": post.gif4}}
         ]
         card.question = post.title.rendered
-        card.deck = category
+        card.deck = JSON.parse categories
         card.choices = undefined
         card.ACL = "*": read: true
         card.publishDate = new Date()

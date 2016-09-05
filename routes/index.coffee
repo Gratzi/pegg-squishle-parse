@@ -21,13 +21,15 @@ router.get '/', (req, res) ->
 router.post '/card', (req, res) ->
   log req.body
 
-  if req.body?.id
-    parse.createCard req.body.id, req.body.category
+  if req.body?.post_id
+    parse.createCard req.body.post_id, req.body.categories
       .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
         res.send result
       .catch (err) => fail err, res
-#
+  else
+    res.send()
+
 #    parse.updateCard req.body
 #      .then (result) =>
 #        res.setHeader 'Content-Type', 'application/json'
