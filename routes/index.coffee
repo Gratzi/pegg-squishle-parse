@@ -19,10 +19,11 @@ router.get '/', (req, res) ->
 
 ### New Card ###
 router.post '/card', (req, res) ->
+#  { post_id: '2446', update: '1', categories: '["Playful"]' }
   log req.body
 
   if req.body?.post_id
-    parse.createCard req.body.post_id, req.body.categories
+    parse.processCard req.body.post_id, req.body.categories
       .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
         res.send result
