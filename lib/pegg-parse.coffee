@@ -29,7 +29,6 @@ wp = new WP (
   auth: true
 )
 
-
 class PeggParse
   constructor: ->
     Parse.initialize PARSE_APP_ID, null, PARSE_MASTER_KEY

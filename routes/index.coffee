@@ -21,7 +21,9 @@ router.get '/', (req, res) ->
 router.post '/card', (req, res) ->
   log req.body
 
-  if req.body?.post_id
+  if req.body?.content?
+    console.log req.body?.content
+  else if req.body?.post_id
     parse.createCard req.body.post_id, req.body.categories
       .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
