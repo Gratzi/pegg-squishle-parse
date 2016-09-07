@@ -143,38 +143,42 @@ class PeggParse
         parseCard = null
         card = {}
         card.question = post.question
-        card.deck = JSON.parse(categories)[0]
+        if categories?
+          card.deck = JSON.parse(categories)?[0]
         card.choices = undefined
         card.ACL = "*": read: true
         card.publishDate = new Date()
-        @create type: 'Card', object: card
-          .then (result) =>
-            parseCard = result
-            cardId = parseCard.id
-            Promise.when(
-              for choice in post.choices then do (choice, cardId) =>
-                choice.card = @_pointer 'Card', cardId
-                choice.ACL = "*": read: true
-                @create type: 'Choice', object: choice
-            )
-          .then (parseChoices) =>
-            for choice, i in post.choices
-              choice.id = parseChoices[i].id
-              choice.cardId = cardId
-              choice.card = undefined
-              choice.ACL = undefined
-            card.choices = _.keyBy post.choices, 'id'
-            parseCard.set 'choices', card.choices
-            parseCard.save null, { useMasterKey: true }
-          .then =>
-            log "created card #{cardId}"
-            @updatePost postId, cardId
-            debug @pretty parseCard
-            result =
-              cardId: cardId
-              choices: _.map card.choices, 'id'
-            log "result:", @pretty result
-            result
+        if post.content?
+          console.log "TODO... UPDATING: " + post.content
+        else
+          @create type: 'Card', object: card
+            .then (result) =>
+              parseCard = result
+              cardId = parseCard.id
+              Promise.when(
+                for choice in post.choices then do (choice, cardId) =>
+                  choice.card = @_pointer 'Card', cardId
+                  choice.ACL = "*": read: true
+                  @create type: 'Choice', object: choice
+              )
+            .then (parseChoices) =>
+              for choice, i in post.choices
+                choice.id = parseChoices[i].id
+                choice.cardId = cardId
+                choice.card = undefined
+                choice.ACL = undefined
+              card.choices = _.keyBy post.choices, 'id'
+              parseCard.set 'choices', card.choices
+              parseCard.save null, { useMasterKey: true }
+            .then =>
+              log "created card #{cardId}"
+              @updatePost postId, cardId
+              debug @pretty parseCard
+              result =
+                cardId: cardId
+                choices: _.map card.choices, 'id'
+              log "result:", @pretty result
+              result
 
   updatePost: (postId, cardId) =>
     wp.posts().id(postId).update(content: cardId)
@@ -191,12 +195,13 @@ class PeggParse
         post = {}
         post.choices = []
         post.question = result.title.rendered
+        post.content = result.content.raw or result.content.rendered
         for i in [1..4]
           choice = {}
           gifUrl = result["gif#{i}"]
           console.log "gifUrl: #{gifUrl}"
           gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
-          gifId = gifIdPattern.exec(gifUrl)[1]
+          gifId = gifIdPattern.exec(gifUrl)?[1]
           console.log "gifId: #{gifId}"
           if gifUrl.indexOf("giphy.com") > -1
             choice.image =
