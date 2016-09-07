@@ -6,8 +6,7 @@ log = debugLib 'app:log'
 debug = debugLib 'app:debug'
 errorLog = debugLib 'app:error'
 request = require 'request-promise'
-WP = require 'wpapi'
-# https://github.com/WP-API/node-wpapi
+WP = require 'wpapi' # https://github.com/WP-API/node-wpapi
 
 fail = (msg) ->
   error = new Error msg
