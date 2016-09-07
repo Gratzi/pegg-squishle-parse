@@ -6,6 +6,8 @@ log = debugLib 'app:log'
 debug = debugLib 'app:debug'
 errorLog = debugLib 'app:error'
 request = require 'request-promise'
+WP = require 'wpapi'
+# https://github.com/WP-API/node-wpapi
 
 fail = (msg) ->
   error = new Error msg
@@ -18,6 +20,15 @@ PARSE_MAX_RESULTS = 1000
 PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
 PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
 PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
+SQUISHLE_USERNAME = process.env.SQUISHLE_USERNAME or fail "cannot have an empty SQUISHLE_USERNAME"
+SQUISHLE_PASSWORD = process.env.SQUISHLE_PASSWORD or fail "cannot have an empty SQUISHLE_PASSWORD"
+
+wp = new WP (
+  endpoint: 'http://squishle.me/wp-json'
+  username: SQUISHLE_USERNAME
+  password: SQUISHLE_PASSWORD
+  auth: true
+)
 
 class PeggParse
   constructor: ->
@@ -158,6 +169,7 @@ class PeggParse
             parseCard.save null, { useMasterKey: true }
           .then =>
             log "created card #{cardId}"
+            @updatePost postId, cardId
             debug @pretty parseCard
             result =
               cardId: cardId
@@ -165,18 +177,21 @@ class PeggParse
             log "result:", @pretty result
             result
 
+  updatePost: (postId, cardId) =>
+    wp.posts().id(postId).update(content: cardId)
+      .catch (err) => console.log err
+      .then (result) =>
+        console.log result
+
   fetchPostData: (postId) =>
     log "fetching squishle post details for #{postId}"
-    props =
-      url: 'http://squishle.me/wp-json/wp/v2/post/' + postId
-      json: true
-    request props
-      .catch (error) => errorLog error
+    wp.posts().id(postId).get()
+      .catch (err) => console.log err
       .then (result) =>
+        console.log result
         post = {}
         post.choices = []
         post.question = result.title.rendered
-        console.log result
         for i in [1..4]
           choice = {}
           gifUrl = result["gif#{i}"]
