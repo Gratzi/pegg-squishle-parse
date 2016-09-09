@@ -154,18 +154,19 @@ class PeggParse
   #    {text:"fourth choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}}
   #  ]
   processCard: (postId, categories) =>
-    log "creating card"
+    log "creating card from post: #{postId}"
     @fetchPostData postId
       .then (post) =>
         if categories?
           post.deck = JSON.parse(categories)?[0]
-        if post.id?.length > 0
-          console.log "Todo... UPDATE: #{post.id}"
+        if post.content?.length > 0
+          console.log "Todo... UPDATE: #{@pretty post}"
 #          @updateCard post
         else
           @createCard post
-            .then (cardId) =>
-              @updatePost postId, cardId
+            .then (result) =>
+              log "card created: ", @pretty result
+              @updatePost postId, JSON.stringify result
               @incrementDeck post.deck
 
   incrementDeck: (deck) =>
@@ -204,16 +205,15 @@ class PeggParse
         parseCard.set 'choices', card.choices
         parseCard.save null, { useMasterKey: true }
       .then =>
-        log "created card #{cardId}"
         debug @pretty parseCard
         result =
           cardId: cardId
-          choices: _.map card.choices, 'id'
-        log "result:", @pretty result
-        cardId
+          choices: _.map card.choices, (choice) => id: choice.id, num: choice.num
+        result
 
-  updatePost: (postId, cardId) =>
-    wp.posts().id(postId).update(content: cardId)
+  updatePost: (postId, card) =>
+    log "updating post: #{postId} #{card}"
+    wp.posts().id(postId).update(content: card)
       .catch (err) => console.log err
       .then (result) =>
         console.log result
@@ -227,7 +227,7 @@ class PeggParse
         post = {}
         post.choices = []
         post.question = result.title.rendered
-        post.id = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
+        post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
         for i in [1..4]
           choice = {}
           gifUrl = result["gif#{i}"]
@@ -248,6 +248,7 @@ class PeggParse
               url: gifUrl
               source: gifUrl
           choice.text = result["answer#{i}"]
+          choice.num = i
           post.choices.push choice
         console.log JSON.stringify post
         return post
