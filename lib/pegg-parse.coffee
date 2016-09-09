@@ -50,6 +50,15 @@ class PeggParse
         debug @pretty result
         result
 
+  getBy: ({type, field, value}) ->
+    query = new Parse.Query type
+    query.equalTo field, value
+    query.first { useMasterKey: true }
+      .then (result) =>
+        log 'message', "got #{type}.#{field}.#{value}"
+        debug @pretty result
+        result
+
   create: ({type, object}) ->
     log 'message', "creating #{type}"
     debug @pretty object
@@ -74,6 +83,19 @@ class PeggParse
         parseObject.save null, { useMasterKey: true }
       .then (result) =>
         log 'message', "updated #{type} #{id}"
+        debug @pretty result
+        result
+
+  increment: ({type, id, field, num}) ->
+    log 'message', "incrementing #{type} #{id}"
+    @get {type, id}
+      .then (parseObject) =>
+        unless parseObject?
+          throw "object not found"
+        parseObject.increment field, num
+        parseObject.save null, { useMasterKey: true }
+      .then (result) =>
+        log 'message', "incremented #{type} #{id}"
         debug @pretty result
         result
 
@@ -144,6 +166,14 @@ class PeggParse
           @createCard post
             .then (cardId) =>
               @updatePost postId, cardId
+              @incrementDeck post.deck
+
+  incrementDeck: (deck) =>
+    @getBy {type: "Deck", field: "name", value: deck}
+      .then (parseDeck) =>
+        @increment {type: "Deck", id: parseDeck.id, field: "count", num: 1}
+      .then (result) =>
+        console.log "#{deck} deck incremented"
 
   createCard: (post) =>
     card = {}
