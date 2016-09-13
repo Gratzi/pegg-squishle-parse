@@ -107,43 +107,6 @@ class PeggParse
         debug @pretty result
         result
 
-  updateCard: (card) =>
-    cardId = card.id
-    console.log "updating card #{cardId}"
-    debug @pretty card
-    choices = card.choices
-    Promise.when(
-      for choice, i in choices then do (choice, i, cardId) =>
-        choice.card = @_pointer 'Card', cardId
-        choice.ACL = "*": read: true
-        if _.isEmpty choice.id
-          @create type: 'Choice', object: choice
-            .then (result) =>
-              choice.id = result.id
-              choice.cardId = cardId
-              choice.card = undefined
-              choice.ACL = undefined
-        else if _.isEmpty choice.text
-          delete choices[i]
-          @delete type: 'Choice', id: choice.id
-        else
-          @update type: 'Choice', id: choice.id, object: choice
-            .then (result) =>
-              choice.cardId = cardId
-              choice.card = undefined
-              choice.ACL = undefined
-    ).then =>
-      card.choices = _.keyBy choices, 'id'
-      card.ACL = "*": read: true
-      @update type: 'Card', id: cardId, object: card
-    .then =>
-      log "updated card #{cardId}"
-      result =
-        cardId: cardId
-        choices: _.map card.choices, 'id'
-      log "result:", @pretty result
-      result
-
   #card =
   #  question: 'Some question'
   #  deck: 'Throwback'
@@ -156,25 +119,97 @@ class PeggParse
   processCard: (postId, categories) =>
     log "creating card from post: #{postId}"
     @fetchPostData postId
-      .then (post) =>
-        if categories?
-          post.deck = JSON.parse(categories)?[0]
-        if post.content?.length > 0
-          console.log "Todo... UPDATE: #{@pretty post}"
-#          @updateCard post
+    .then @fetchImageData
+    .then (card) =>
+      if categories?
+        card.deck = JSON.parse(categories)?[0]
+      if card.content?.length > 0
+        console.log "TODO: implement update"
+#        @updateCard card
+      else
+        @createCard card
+          .then (result) =>
+            log "card created: ", @pretty result
+#            @updatePost postId, JSON.stringify result
+            @incrementDeck card.deck
+
+  fetchPostData: (postId) =>
+    log "fetching squishle post details for #{postId}"
+    wp.posts().id(postId).get()
+    .catch (err) => console.log err
+    .then (result) =>
+      console.log result
+      post = {}
+      post.choices = []
+      post.post = postId
+      post.question = result.title.rendered
+      post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
+      for i in [1..4]
+        choice = {}
+        choice.gifUrl = result["gif#{i}"]
+        choice.text = result["answer#{i}"]
+        choice.num = i
+        post.choices.push choice
+      console.log JSON.stringify post
+      return post
+
+  fetchImageData: (card) =>
+    gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
+    Promise.when(
+      for choice in card.choices then do (choice) =>
+        choice.gifId = gifIdPattern.exec(choice.gifUrl)?[1]
+        console.log "gifId: #{choice.gifId}"
+        if choice.gifUrl.indexOf("giphy.com") > -1
+          @fetchGiphyData choice
+        else if choice.gifUrl.indexOf("imgur.com") > -1
+          @fetchImgurData choice
+    ).then (choices) =>
+      console.log @pretty choices
+      card.choices = choices
+      card
+
+  fetchImgurData: (choice) =>
+    log "fetching imgur details for #{choice.gifId}"
+    props =
+      url: 'https://api.imgur.com/3/gallery/' + choice.gifId
+      headers:
+        Authorization: 'Client-ID f2400da11df9695'
+      json: true
+    request props
+      .catch (error) => errorLog error
+      .then (result) =>
+#        console.log "IMGUR: " + @pretty result
+        if result.is_album
+          choice.image =
+            url: result.data.images[0].mp4
+            source: result.data.link
         else
-          @createCard post
-            .then (result) =>
-              log "card created: ", @pretty result
-              @updatePost postId, JSON.stringify result
-              @incrementDeck post.deck
+          choice.image =
+            url: result.data.mp4
+            source: "http://imgur.com/#{choice.gifId}"
+        choice
+
+  fetchGiphyData: (choice) =>
+    log "fetching giphy details for #{choice.gifId}"
+    props =
+      url: 'http://api.giphy.com/v1/gifs/' + choice.gifId
+      qs:
+        api_key: 'dc6zaTOxFJmzC'
+      json: true
+    request props
+      .catch (error) => errorLog error
+      .then (result) =>
+        choice.image =
+          url: result.data.images.original.url
+          source: result.data.source_post_url
+        choice
 
   incrementDeck: (deck) =>
     @getBy {type: "Deck", field: "name", value: deck}
-      .then (parseDeck) =>
-        @increment {type: "Deck", id: parseDeck.id, field: "count", num: 1}
-      .then (result) =>
-        console.log "#{deck} deck incremented"
+    .then (parseDeck) =>
+      @increment {type: "Deck", id: parseDeck.id, field: "count", num: 1}
+    .then (result) =>
+      console.log "#{deck} deck incremented"
 
   createCard: (post) =>
     card = {}
@@ -186,30 +221,30 @@ class PeggParse
     card.ACL = "*": read: true
     card.publishDate = new Date()
     @create type: 'Card', object: card
-      .then (result) =>
-        parseCard = result
-        cardId = parseCard.id
-        Promise.when(
-          for choice in post.choices then do (choice, cardId) =>
-            choice.card = @_pointer 'Card', cardId
-            choice.ACL = "*": read: true
-            @create type: 'Choice', object: choice
-        )
-      .then (parseChoices) =>
-        for choice, i in post.choices
-          choice.id = parseChoices[i].id
-          choice.cardId = cardId
-          choice.card = undefined
-          choice.ACL = undefined
-        card.choices = _.keyBy post.choices, 'id'
-        parseCard.set 'choices', card.choices
-        parseCard.save null, { useMasterKey: true }
-      .then =>
-        debug @pretty parseCard
-        result =
-          cardId: cardId
-          choices: _.map card.choices, (choice) => id: choice.id, num: choice.num
-        result
+    .then (result) =>
+      parseCard = result
+      cardId = parseCard.id
+      Promise.when(
+        for choice in post.choices then do (choice, cardId) =>
+          choice.card = @_pointer 'Card', cardId
+          choice.ACL = "*": read: true
+          @create type: 'Choice', object: choice
+      )
+    .then (parseChoices) =>
+      for choice, i in post.choices
+        choice.id = parseChoices[i].id
+        choice.cardId = cardId
+        choice.card = undefined
+        choice.ACL = undefined
+      card.choices = _.keyBy post.choices, 'id'
+      parseCard.set 'choices', card.choices
+      parseCard.save null, { useMasterKey: true }
+    .then =>
+      debug @pretty parseCard
+      result =
+        cardId: cardId
+        choices: _.map card.choices, (choice) => id: choice.id, num: choice.num
+      result
 
   updatePost: (postId, card) =>
     log "updating post: #{postId} #{card}"
@@ -218,55 +253,45 @@ class PeggParse
       .then (result) =>
         console.log result
 
-  fetchPostData: (postId) =>
-    log "fetching squishle post details for #{postId}"
-    wp.posts().id(postId).get()
-      .catch (err) => console.log err
-      .then (result) =>
-        console.log result
-        post = {}
-        post.choices = []
-        post.question = result.title.rendered
-        post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
-        for i in [1..4]
-          choice = {}
-          gifUrl = result["gif#{i}"]
-          console.log "gifUrl: #{gifUrl}"
-          gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
-          gifId = gifIdPattern.exec(gifUrl)?[1]
-          console.log "gifId: #{gifId}"
-          if gifUrl.indexOf("giphy.com") > -1
-            choice.image =
-              url: "http://media3.giphy.com/media/#{gifId}/giphy.gif"
-              source: gifUrl
-          else if gifUrl.indexOf("imgur.com") > -1
-            choice.image =
-              url: "http://i.imgur.com/#{gifId}.mp4"
-              source: gifUrl
-          else
-            choice.image =
-              url: gifUrl
-              source: gifUrl
-          choice.text = result["answer#{i}"]
-          choice.num = i
-          post.choices.push choice
-        console.log JSON.stringify post
-        return post
+  updateCard: (card) =>
+    cardId = card.id
+    console.log "updating card #{cardId}"
+    debug @pretty card
+    choices = card.choices
+    Promise.when(
+      for choice, i in choices then do (choice, i, cardId) =>
+        choice.card = @_pointer 'Card', cardId
+        choice.ACL = "*": read: true
+        if _.isEmpty choice.id
+          @create type: 'Choice', object: choice
+          .then (result) =>
+            choice.id = result.id
+            choice.cardId = cardId
+            choice.card = undefined
+            choice.ACL = undefined
+        else if _.isEmpty choice.text
+          delete choices[i]
+          @delete type: 'Choice', id: choice.id
+        else
+          @update type: 'Choice', id: choice.id, object: choice
+          .then (result) =>
+            choice.cardId = cardId
+            choice.card = undefined
+            choice.ACL = undefined
+    ).then =>
+      card.choices = _.keyBy choices, 'id'
+      card.ACL = "*": read: true
+      @update type: 'Card', id: cardId, object: card
+    .then =>
+      log "updated card #{cardId}"
+      result =
+        cardId: cardId
+        choices: _.map card.choices, 'id'
+      log "result:", @pretty result
+      result
 
-
-#  fetchGiphyDetails: (gifId) =>
-#    log "fetching giphy details for #{gifId}"
-#    props =
-#      url: 'http://api.giphy.com/v1/gifs/' + gifId
-#      qs:
-#        api_key: 'dc6zaTOxFJmzC'
-#      json: true
-#    request props
-#    .catch (error) => errorLog error
-#    .then (result) =>
-#      url: result.data.images.original.url
-#      source: result.data.source_post_url
-
+  pretty: (thing) ->
+    JSON.stringify thing, null, 2
 
 #  createCosmicUnicorn: ->
     # { "results": [
@@ -301,8 +326,6 @@ class PeggParse
     #     }
     # ] }
 
-  pretty: (thing) ->
-    JSON.stringify thing, null, 2
 
   # updateBatchRecursive: (requests, offset) ->
   #   newOffset = offset + 50 # max batch size
