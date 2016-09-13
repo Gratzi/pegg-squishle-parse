@@ -7,6 +7,8 @@ debug = debugLib 'app:debug'
 errorLog = debugLib 'app:error'
 request = require 'request-promise'
 WP = require 'wpapi' # https://github.com/WP-API/node-wpapi
+Entities = require('html-entities').AllHtmlEntities # https://www.npmjs.com/package/html-entities
+entities = new Entities()
 
 fail = (msg) ->
   error = new Error msg
@@ -142,7 +144,7 @@ class PeggParse
       post = {}
       post.choices = []
       post.post = postId
-      post.question = result.title.rendered
+      post.question = entities.decode result.title.rendered
       post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
       for i in [1..4]
         choice = {}
