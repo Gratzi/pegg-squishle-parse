@@ -132,7 +132,7 @@ class PeggParse
         @createCard card
           .then (result) =>
             log "card created: ", @pretty result
-#            @updatePost postId, JSON.stringify result
+            @updatePost postId, JSON.stringify result
             @incrementDeck card.deck
 
   fetchPostData: (postId) =>
