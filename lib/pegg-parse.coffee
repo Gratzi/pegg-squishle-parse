@@ -145,16 +145,17 @@ class PeggParse
       post.choices = []
       post.post = postId
       post.question = entities.decode result.title.rendered
-      content = JSON.parse(entities.decode(result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')))
+      content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
       unless _.isEmpty(content)
-        post.id = content.cardId
+        parsedContent = JSON.parse(entities.decode(content))
+        post.id = parsedContent.cardId
       for i in [1..4]
         choice = {}
         choice.gifUrl = result["gif#{i}"]
         choice.text = result["answer#{i}"]
         choice.num = i
         unless _.isEmpty(content)
-          choice.id = _.find content.choices, num: i
+          choice.id = _.find parsedContent.choices, num: i
         post.choices.push choice
       console.log JSON.stringify post
       return post
