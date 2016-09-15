@@ -127,12 +127,12 @@ class PeggParse
         card.deck = JSON.parse(categories)?[0]
       if card.content?.length > 0
         console.log "TODO: implement update"
-#        @updateCard card
+        @updateCard card
       else
         @createCard card
           .then (result) =>
             log "card created: ", @pretty result
-            @updatePost postId, JSON.stringify result
+            @updatePost postId, JSON.stringify(entities.encode(result))
             @incrementDeck card.deck
 
   fetchPostData: (postId) =>
@@ -145,12 +145,16 @@ class PeggParse
       post.choices = []
       post.post = postId
       post.question = entities.decode result.title.rendered
-      post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
+      content = JSON.parse(entities.decode(result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')))
+      unless _.isEmpty(content)
+        post.id = content.cardId
       for i in [1..4]
         choice = {}
         choice.gifUrl = result["gif#{i}"]
         choice.text = result["answer#{i}"]
         choice.num = i
+        unless _.isEmpty(content)
+          choice.id = _.find content.choices, num: i
         post.choices.push choice
       console.log JSON.stringify post
       return post
@@ -181,7 +185,7 @@ class PeggParse
       .catch (error) => errorLog error
       .then (result) =>
 #        console.log "IMGUR: " + @pretty result
-        if result.is_album
+        if result.data.is_album
           choice.image =
             url: result.data.images[0].mp4
             source: result.data.link
