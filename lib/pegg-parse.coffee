@@ -127,12 +127,12 @@ class PeggParse
         card.deck = JSON.parse(categories)?[0]
       if card.content?.length > 0
         console.log "TODO: implement update"
-        @updateCard card
+#        @updateCard card
       else
         @createCard card
           .then (result) =>
             log "card created: ", @pretty result
-            @updatePost postId, JSON.stringify(entities.encode(result))
+            @updatePost postId, JSON.stringify result
             @incrementDeck card.deck
 
   fetchPostData: (postId) =>
@@ -145,17 +145,12 @@ class PeggParse
       post.choices = []
       post.post = postId
       post.question = entities.decode result.title.rendered
-      content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
-      unless _.isEmpty(content)
-        parsedContent = JSON.parse(entities.decode(content))
-        post.id = parsedContent.cardId
+      post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
       for i in [1..4]
         choice = {}
         choice.gifUrl = result["gif#{i}"]
         choice.text = result["answer#{i}"]
         choice.num = i
-        unless _.isEmpty(content)
-          choice.id = _.find parsedContent.choices, num: i
         post.choices.push choice
       console.log JSON.stringify post
       return post
