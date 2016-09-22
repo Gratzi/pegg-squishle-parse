@@ -16,3 +16,8 @@ Run it like:
 ```
 PARSE_APP_ID='asdf' PARSE_MASTER_KEY='asdf' PARSE_SERVER_URL='qwer' CLIENT_SECRET='asdf' PORT=3003 DEBUG='app:*' npm run start
 ```
+
+Test locally:
+```
+curl -X POST http://localhost:3000/card --data "post_id=603&categories=[\"Naughty\"]"
+```
