@@ -125,9 +125,9 @@ class PeggParse
     .then (card) =>
       if categories?
         card.deck = JSON.parse(categories)?[0]
-      if card.content?.length > 0
+      if card.id?
         console.log "TODO: implement update"
-#        @updateCard card
+        @updateCard card
       else
         @createCard card
           .then (result) =>
@@ -145,12 +145,20 @@ class PeggParse
       post.choices = []
       post.post = postId
       post.question = entities.decode result.title.rendered
-      post.content = result.content.raw or result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')
+      unless _.isEmpty result.content?.rendered
+        defuckedRenderedContent = entities.decode(result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')).replace(/[“”″]/gm, '"')
+        content = JSON.parse(defuckedRenderedContent)
+        if content?.cardId?
+          post.id = content.cardId
+        if content?.choices?
+          content.choices = _.sortBy content.choices, 'num'
       for i in [1..4]
         choice = {}
         choice.gifUrl = result["gif#{i}"]
         choice.text = result["answer#{i}"]
         choice.num = i
+        if content?.choices?[i-1]?.id?
+          choice.id = content.choices[i-1].id
         post.choices.push choice
       console.log JSON.stringify post
       return post
@@ -165,6 +173,8 @@ class PeggParse
           @fetchGiphyData choice
         else if choice.gifUrl.indexOf("imgur.com") > -1
           @fetchImgurData choice
+        else
+          Promise.as choice
     ).then (choices) =>
       console.log @pretty choices
       card.choices = choices
@@ -239,7 +249,11 @@ class PeggParse
         choice.card = undefined
         choice.ACL = undefined
       card.choices = _.keyBy post.choices, 'id'
-      parseCard.set 'choices', card.choices
+      prunedChoices = _.cloneDeep card.choices
+      for own id, choice of prunedChoices
+        if _.isEmpty choice.text
+          delete prunedChoices[id]
+      parseCard.set 'choices', prunedChoices
       parseCard.save null, { useMasterKey: true }
     .then =>
       debug @pretty parseCard
@@ -264,22 +278,22 @@ class PeggParse
       for choice, i in choices then do (choice, i, cardId) =>
         choice.card = @_pointer 'Card', cardId
         choice.ACL = "*": read: true
-        if _.isEmpty choice.id
-          @create type: 'Choice', object: choice
-          .then (result) =>
-            choice.id = result.id
-            choice.cardId = cardId
-            choice.card = undefined
-            choice.ACL = undefined
-        else if _.isEmpty choice.text
-          delete choices[i]
-          @delete type: 'Choice', id: choice.id
-        else
-          @update type: 'Choice', id: choice.id, object: choice
-          .then (result) =>
-            choice.cardId = cardId
-            choice.card = undefined
-            choice.ACL = undefined
+        # if _.isEmpty choice.id
+        #   @create type: 'Choice', object: choice
+        #   .then (result) =>
+        #     choice.id = result.id
+        #     choice.cardId = cardId
+        #     choice.card = undefined
+        #     choice.ACL = undefined
+        # else if _.isEmpty choice.text
+        #   delete choices[i]
+        #   @delete type: 'Choice', id: choice.id
+        # else
+        @update type: 'Choice', id: choice.id, object: choice
+        .then (result) =>
+          choice.cardId = cardId
+          choice.card = undefined
+          choice.ACL = undefined
     ).then =>
       card.choices = _.keyBy choices, 'id'
       card.ACL = "*": read: true
