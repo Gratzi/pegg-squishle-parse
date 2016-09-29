@@ -21,3 +21,9 @@ Test locally:
 ```
 curl -X POST http://localhost:3000/card --data "post_id=603&categories=[\"Naughty\"]"
 ```
+
+## Scripts
+
+```
+DEBUG=* PARSE_APP_ID=[xxx] PARSE_MASTER_KEY=[xxx] PARSE_SERVER_URL=http://pegg-staging.herokuapp.com/parse SQUISHLE_USERNAME=[xxx] SQUISHLE_PASSWORD=[xxx] coffee scripts/[whatever]
+```
