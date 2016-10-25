@@ -1,32 +1,13 @@
+{ fail, pretty, debug, log, errorLog } = require '../lib/common'
+_ = require 'lodash'
 Parse = require('parse/node')
 Promise = Parse.Promise
-_ = require 'lodash'
-debugLib = require 'debug'
-log = debugLib 'app:log'
-debug = debugLib 'app:debug'
-errorLog = debugLib 'app:error'
-request = require 'request-promise'
-WP = require 'wpapi' # https://github.com/WP-API/node-wpapi
-Entities = require('html-entities').AllHtmlEntities # https://www.npmjs.com/package/html-entities
-entities = new Entities()
-
-fail = (msg) ->
-  error = new Error msg
-  errorLog error
-  throw error
 
 PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
 PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
 PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
-SQUISHLE_USERNAME = process.env.SQUISHLE_USERNAME or fail "cannot have an empty SQUISHLE_USERNAME"
-SQUISHLE_PASSWORD = process.env.SQUISHLE_PASSWORD or fail "cannot have an empty SQUISHLE_PASSWORD"
 
-wp = new WP (
-  endpoint: 'http://squishle.me/wp-json'
-  username: SQUISHLE_USERNAME
-  password: SQUISHLE_PASSWORD
-  auth: true
-)
+fail "requires newer node version" unless require('semver').gt process.version, '5.0.0'
 
 class PeggParse
   PARSE_OBJECT_ID: /^[0-z]{8,10}$/
@@ -36,7 +17,7 @@ class PeggParse
     Parse.initialize PARSE_APP_ID, null, PARSE_MASTER_KEY
     Parse.serverURL = PARSE_SERVER_URL
 
-  _pointer: (type, id) ->
+  pointer: ({ type, id }) ->
     throw new Error "pointer type required" unless type?
     throw new Error "pointer object ID required" unless id?
     parseObject = new Parse.Object type
@@ -44,55 +25,75 @@ class PeggParse
     parseObject
 
   get: ({type, id}) ->
+    debug "get: #{pretty arguments[0]}"
     query = new Parse.Query type
     query.equalTo 'objectId', id
     query.first { useMasterKey: true }
       .then (result) =>
-        log 'message', "got #{type} #{id}"
-        debug @pretty result
+        log "got #{type} #{id}"
+        debug pretty result
         result
 
   getBy: ({type, field, value}) ->
+    debug "getBy: #{pretty arguments[0]}"
     query = new Parse.Query type
     query.equalTo field, value
     query.first { useMasterKey: true }
       .then (result) =>
-        log 'message', "got #{type}.#{field}.#{value}"
-        debug @pretty result
+        log "got #{type}.#{field}.#{value}"
+        debug pretty result
         result
 
   getAllBy: ({type, field, value, skip}) ->
+    debug "getAllBy: #{pretty arguments[0]}"
     skip or= 0
-    log 'getting: ', "#{type}.#{field}.#{value}.#{skip}"
+    lastResults = []
     query = new Parse.Query type
     query.equalTo field, value
     query.limit @PARSE_MAX_RESULTS
     query.skip skip
     query.find { useMasterKey: true }
     .then (results) =>
-      log "got: #{results.length}"
       if results?.length > 0
-        debug @pretty results
-        skip+= @PARSE_MAX_RESULTS
-        @getAllBy {type, field, value, skip}
-        .then (nextResults) =>
-          _.merge results, nextResults
+        debug "got #{results.length} results for #{type}.#{field} (#{JSON.stringify value})"
+        if results.length is @PARSE_MAX_RESULTS
+          skip+= @PARSE_MAX_RESULTS
+          lastResults = results
+          @getAllBy {type, field, value, skip}
+        else
+          results
+    .then (nextResults) =>
+      _.merge lastResults, nextResults
+
+  getAllByBatch: ({type, field, value, skip}, cb) ->
+    debug "getAllBy: #{pretty arguments[0]}"
+    skip or= 0
+    query = new Parse.Query type
+    query.equalTo field, value
+    query.limit @PARSE_MAX_RESULTS
+    query.skip skip
+    query.find { useMasterKey: true }
+    .then (results) =>
+      if results?.length > 0
+        debug "got #{results.length} results for #{type}.#{field} (#{JSON.stringify value})"
+        cb results
+        if results.length is @PARSE_MAX_RESULTS
+          skip+= @PARSE_MAX_RESULTS
+          @getAllBy {type, field, value, skip}
 
   create: ({type, object}) ->
-    log 'message', "creating #{type}"
-    debug @pretty object
+    debug "create: #{pretty arguments[0]}"
     parseObject = new Parse.Object type
     for key, val of object
       parseObject.set key, val
     parseObject.save null, { useMasterKey: true }
       .then (result) =>
-        log 'message', "created #{type} #{result.id}"
-        debug @pretty result
+        log "created #{type} #{result.id}"
+        debug pretty result
         result
 
   update: ({type, id, object}) ->
-    log 'message', "updating #{type} #{id}"
-    debug @pretty object
+    debug "update: #{pretty arguments[0]}"
     @get {type, id}
       .then (parseObject) =>
         unless parseObject?
@@ -101,12 +102,12 @@ class PeggParse
           parseObject.set key, val
         parseObject.save null, { useMasterKey: true }
       .then (result) =>
-        log 'message', "updated #{type} #{id}"
-        debug @pretty result
+        log "updated #{type} #{id}"
+        debug pretty result
         result
 
   increment: ({type, id, field, num}) ->
-    log 'message', "incrementing #{type} #{id}"
+    debug "increment: #{pretty arguments[0]}"
     @get {type, id}
       .then (parseObject) =>
         unless parseObject?
@@ -114,228 +115,64 @@ class PeggParse
         parseObject.increment field, num
         parseObject.save null, { useMasterKey: true }
       .then (result) =>
-        log 'message', "incremented #{type} #{id}"
-        debug @pretty result
+        log "incremented #{type} #{id}"
+        debug pretty result
         result
 
   delete: ({type, id}) ->
-    parseObject = @_pointer type, id
+    debug "delete: #{pretty arguments[0]}"
+    parseObject = @pointer { type, id }
     parseObject.destroy { useMasterKey: true }
       .then (result) =>
-        log 'message', "deleted #{type} #{id}"
-        debug @pretty result
+        log "deleted #{type} #{id}"
+        debug pretty result
         result
 
   findAndDelete: ({type, field, value}) ->
+    debug "findAndDelete: #{pretty arguments[0]}"
     @getAllBy {type, field, value}
     .then (results) =>
+      log "found #{results.length} of type #{type} to delete"
+      debug pretty results
       # make a bunch of sub-promises that resolve when the row is successfully deleted, and
       # return a promise that resolves iff all of the rows were deleted, otherwise fails
       Promise.all(
         for item in results
-          @delete type: type, id: item.objectId
+          @delete type: type, id: item.id
       )
 
+  clearHasPreffed: ({userId}) =>
+    # get all the cards, and return a promise
+    @getAllByBatch type: 'Card',
+      (results) =>
+        log "clearing hasPreffed from #{results.length} cards for user #{userId}"
+        # make a bunch of sub-promises that resolve when the row is successfully cleared, and
+        # return a promise that resolves iff all of the rows were cleared, otherwise fails
+        Promise.all(
+          for card in results
+            if card.get('hasPreffed')?.indexOf(userId) > -1
+              pref.set 'hasPreffed', _.without pref.get('hasPreffed'), userId
+              card.save null, { useMasterKey: true }
+                .then =>
+                  debug "cleared hasPreffed from card: #{card.id}"
+        )
 
-  #card =
-  #  question: 'Some question'
-  #  deck: 'Throwback'
-  #  choices: [
-  #    {text: "first choice", image: {source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}},
-  #    {text: "second choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}},
-  #    {text:"third choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}},
-  #    {text:"fourth choice", image:{source:"https://media1.giphy.com/media/lppjX4teaSUnu/giphy.gif", url:""}}
-  #  ]
-  processCard: (postId, categories) =>
-    log "creating card from post: #{postId}"
-    @fetchPostData postId
-    .then @fetchImageData
-    .then (card) =>
-      if categories?
-        card.deck = JSON.parse(categories)?[0]
-      if card.id?
-        console.log "TODO: implement update"
-        @updateCard card
-      else
-        @createCard card
-          .then (result) =>
-            log "card created: ", @pretty result
-            @updatePost postId, JSON.stringify result
-            @incrementDeck card.deck
-
-  fetchPostData: (postId) =>
-    log "fetching squishle post details for #{postId}"
-    wp.posts().id(postId).get()
-    .catch (err) => console.log err
-    .then (result) =>
-      console.log result
-      post = {}
-      post.choices = []
-      post.post = postId
-      post.question = entities.decode result.title.rendered
-      unless _.isEmpty result.content?.rendered
-        defuckedRenderedContent = entities.decode(result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')).replace(/[“”″]/gm, '"')
-        content = JSON.parse(defuckedRenderedContent)
-        if content?.cardId?
-          post.id = content.cardId
-        if content?.choices?
-          content.choices = _.sortBy content.choices, 'num'
-      for i in [1..4]
-        choice = {}
-        choice.gifUrl = result["gif#{i}"]
-        choice.text = result["answer#{i}"]
-        choice.num = i
-        if content?.choices?[i-1]?.id?
-          choice.id = content.choices[i-1].id
-        post.choices.push choice
-      console.log JSON.stringify post
-      return post
-
-  fetchImageData: (card) =>
-    gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
-    Promise.when(
-      for choice in card.choices then do (choice) =>
-        choice.gifId = gifIdPattern.exec(choice.gifUrl)?[1]
-        console.log "gifId: #{choice.gifId}"
-        if choice.gifUrl.indexOf("giphy.com") > -1
-          @fetchGiphyData choice
-        else if choice.gifUrl.indexOf("imgur.com") > -1
-          @fetchImgurData choice
-        else
-          Promise.as choice
-    ).then (choices) =>
-      console.log @pretty choices
-      card.choices = choices
-      card
-
-  fetchImgurData: (choice) =>
-    log "fetching imgur details for #{choice.gifId}"
-    props =
-      url: 'https://api.imgur.com/3/gallery/' + choice.gifId
-      headers:
-        Authorization: 'Client-ID f2400da11df9695'
-      json: true
-    request props
-      .catch (error) => errorLog error
-      .then (result) =>
-#        console.log "IMGUR: " + @pretty result
-        if result.data.is_album
-          choice.image =
-            url: result.data.images[0].mp4
-            source: result.data.link
-        else
-          choice.image =
-            url: result.data.mp4
-            source: "http://imgur.com/#{choice.gifId}"
-        choice
-
-  fetchGiphyData: (choice) =>
-    log "fetching giphy details for #{choice.gifId}"
-    props =
-      url: 'http://api.giphy.com/v1/gifs/' + choice.gifId
-      qs:
-        api_key: 'dc6zaTOxFJmzC'
-      json: true
-    request props
-      .catch (error) => errorLog error
-      .then (result) =>
-        choice.image =
-          url: result.data.images.original.url
-          source: result.data.source_post_url
-        choice
-
-  incrementDeck: (deck) =>
-    @getBy {type: "Deck", field: "name", value: deck}
-    .then (parseDeck) =>
-      @increment {type: "Deck", id: parseDeck.id, field: "count", num: 1}
-    .then (result) =>
-      console.log "#{deck} deck incremented"
-
-  createCard: (post) =>
-    card = {}
-    cardId = null
-    parseCard = null
-    card.choices = undefined
-    card.deck = post.deck
-    card.question = post.question
-    card.ACL = "*": read: true
-    card.publishDate = new Date()
-    @create type: 'Card', object: card
-    .then (result) =>
-      parseCard = result
-      cardId = parseCard.id
-      Promise.when(
-        for choice in post.choices then do (choice, cardId) =>
-          choice.card = @_pointer 'Card', cardId
-          choice.ACL = "*": read: true
-          @create type: 'Choice', object: choice
-      )
-    .then (parseChoices) =>
-      for choice, i in post.choices
-        choice.id = parseChoices[i].id
-        choice.cardId = cardId
-        choice.card = undefined
-        choice.ACL = undefined
-      card.choices = _.keyBy post.choices, 'id'
-      prunedChoices = _.cloneDeep card.choices
-      for own id, choice of prunedChoices
-        if _.isEmpty choice.text
-          delete prunedChoices[id]
-      parseCard.set 'choices', prunedChoices
-      parseCard.save null, { useMasterKey: true }
-    .then =>
-      debug @pretty parseCard
-      result =
-        cardId: cardId
-        choices: _.map card.choices, (choice) => id: choice.id, num: choice.num
-      result
-
-  updatePost: (postId, card) =>
-    log "updating post: #{postId} #{card}"
-    wp.posts().id(postId).update(content: card)
-      .catch (err) => console.log err
-      .then (result) =>
-        console.log result
-
-  updateCard: (card) =>
-    cardId = card.id
-    console.log "updating card #{cardId}"
-    debug @pretty card
-    choices = card.choices
-    Promise.when(
-      for choice, i in choices then do (choice, i, cardId) =>
-        choice.card = @_pointer 'Card', cardId
-        choice.ACL = "*": read: true
-        # if _.isEmpty choice.id
-        #   @create type: 'Choice', object: choice
-        #   .then (result) =>
-        #     choice.id = result.id
-        #     choice.cardId = cardId
-        #     choice.card = undefined
-        #     choice.ACL = undefined
-        # else if _.isEmpty choice.text
-        #   delete choices[i]
-        #   @delete type: 'Choice', id: choice.id
-        # else
-        @update type: 'Choice', id: choice.id, object: choice
-        .then (result) =>
-          choice.cardId = cardId
-          choice.card = undefined
-          choice.ACL = undefined
-    ).then =>
-      card.choices = _.keyBy choices, 'id'
-      card.ACL = "*": read: true
-      @update type: 'Card', id: cardId, object: card
-    .then =>
-      log "updated card #{cardId}"
-      result =
-        cardId: cardId
-        choices: _.map card.choices, 'id'
-      log "result:", @pretty result
-      result
-
-  pretty: (thing) ->
-    JSON.stringify thing, null, 2
+  clearHasPegged: ({userId}) =>
+    # get all the cards, and return a promise
+    @getAllByBatch type: 'Pref',
+      (results) =>
+        log "clearing hasPegged from #{results.length} prefs for user #{userId}"
+        # make a bunch of sub-promises that resolve when the row is successfully cleared, and
+        # return a promise that resolves iff all of the rows were cleared, otherwise fails
+        Promise.all(
+          for pref in results
+            if pref.get('hasPegged')?.indexOf(userId) > -1
+              debug "clearing hasPegged from pref: #{pref.id}"
+              pref.set 'hasPegged', _.without pref.get('hasPegged'), userId
+              pref.save null, { useMasterKey: true }
+                .then =>
+                  log 'message', "cleared hasPegged from pref: #{pref.id}"
+        )
 
 #  createCosmicUnicorn: ->
     # { "results": [
@@ -394,7 +231,7 @@ class PeggParse
   #   unless cardId.match PARSE_OBJECT_ID
   #     return @_error "Invalid card ID: #{cardId}"
   #
-  #   card = @_pointer 'Card', cardId
+  #   card = @pointer 'Card', cardId
   #
   #   Promise.all([
   #     @clearCardFromFriendship card
@@ -436,7 +273,7 @@ class PeggParse
   #   unless userId.match PARSE_OBJECT_ID
   #     return @_error "Invalid user ID: #{userId}"
   #
-  #   user = @_pointer '_User', userId
+  #   user = @pointer '_User', userId
   #
   #   Promise.all([
   #     # XXX If we want to enable (optionally) resetting user to pristine state, como
@@ -483,7 +320,7 @@ class PeggParse
   #   unless userId.match PARSE_OBJECT_ID
   #     return @_error "Invalid user ID: #{userId}"
   #
-  #   user = @_pointer '_User', userId
+  #   user = @pointer '_User', userId
   #
   #   Promise.all([
   #     # XXX If we want to enable (optionally) resetting user to pristine state, como
@@ -524,38 +361,6 @@ class PeggParse
   #   ])
   #     .then (results) => log 'done', userId, results
   #
-  # clearHasPreffed: ({userId}) =>
-  #   # get all the cards, and return a promise
-  #   @_getTable 'Card'
-  #     .then (results) =>
-  #       log 'message', "clearing hasPreffed from #{results.length} cards for user #{userId}"
-  #       # make a bunch of sub-promises that resolve when the row is successfully cleared, and
-  #       # return a promise that resolves iff all of the rows were cleared, otherwise fails
-  #       Promise.all(
-  #         for card in results
-  #           if card.hasPreffed?.indexOf(userId) > -1
-  #             card.hasPreffed = _.uniq(card.hasPreffed).splice userId, 1
-  #             @_parse.updateAsync 'Card', card.objectId, card
-  #               .then =>
-  #                 log 'message', "cleared hasPreffed from card: #{card.objectId}"
-  #       )
-  #
-  # clearHasPegged: ({userId}) =>
-  #   # get all the cards, and return a promise
-  #   @_getTable 'Pref'
-  #     .then (results) =>
-  #       log 'message', "clearing hasPegged from #{results.length} prefs for user #{userId}"
-  #       # make a bunch of sub-promises that resolve when the row is successfully cleared, and
-  #       # return a promise that resolves iff all of the rows were cleared, otherwise fails
-  #       Promise.all(
-  #         for pref in results
-  #           if pref.hasPegged?.indexOf(userId) > -1
-  #             pref.hasPegged = _.uniq(pref.hasPegged).splice userId, 1
-  #             @_parse.updateAsync 'Pref', pref.objectId, pref
-  #               .then =>
-  #                 log 'message', "cleared hasPegged from pref: #{pref.objectId}"
-  #       )
-  #
   # updateBesties: =>
   #   @_getTable 'Pegg'
   #     .then (results) =>
@@ -581,8 +386,8 @@ class PeggParse
   #               "role:#{userId}_Friends": read: true
   #             cards: cardsPlayed
   #             score: score
-  #             user: @_pointer '_User', userId
-  #             friend: @_pointer '_User', peggeeId
+  #             user: @pointer '_User', userId
+  #             friend: @pointer '_User', peggeeId
   #           @create type: 'Bestie', object: bestie
   #             .error (e) =>
   #               console.error e

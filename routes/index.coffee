@@ -1,16 +1,9 @@
-debug = require 'debug'
-log = debug 'app:log'
-errorLog = debug 'app:error'
+{ fail, debug, log, errorLog } = require '../lib/common'
+
 request = require 'request-promise'
-
-fail = (err) ->
-  if typeof err is 'string'
-    err = new Error err
-  errorLog err
-  throw err
-
 express = require 'express'
-parse = require '../lib/pegg-parse'
+squishle = require '../lib/pegg-squishle'
+
 router = express.Router()
 
 ### GET home page. ###
@@ -23,7 +16,7 @@ router.post '/card', (req, res) ->
   log req.body
 
   if req.body?.post_id
-    parse.processCard req.body.post_id, req.body.categories
+    squishle.processCard req.body.post_id, req.body.categories
       .then (result) =>
         res.setHeader 'Content-Type', 'application/json'
         res.send result
@@ -31,13 +24,13 @@ router.post '/card', (req, res) ->
   else
     res.send()
 
-#    parse.updateCard req.body
+#    squishle.updateCard req.body
 #      .then (result) =>
 #        res.setHeader 'Content-Type', 'application/json'
 #        res.send result
 #      .catch (err) => fail err, res
 #  else
-#    parse.createCard req.body
+#    squishle.createCard req.body
 #      .then (result) =>
 #        res.setHeader 'Content-Type', 'application/json'
 #        res.send result

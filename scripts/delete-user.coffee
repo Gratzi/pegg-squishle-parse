@@ -9,16 +9,9 @@
 # Card hasPreffed for user
 # Pref hasPegged for user
 
-debug = require 'debug'
-log = debug 'app:log'
-errorLog = debug 'app:error'
+{ fail, pretty, debug, log, errorLog } = require '../lib/common'
 
-fail = (err) ->
-  if typeof err is 'string'
-    err = new Error err
-  errorLog err
-  throw err
-
+Promise = require('parse/node').Promise
 parse = require '../lib/pegg-parse'
 request = require 'request-promise'
 
@@ -31,24 +24,23 @@ deleteUser = ({userId}) ->
   unless userId.match parse.PARSE_OBJECT_ID
     return @_error "Invalid user ID: #{userId}"
 
-  user = parse._pointer '_User', userId
-  parse.findAndDelete type: 'Pegg', field: 'user', value: user
+  user = parse.pointer type: '_User', id: userId
 
-# Promise.all([
-#   parse.findAndDelete 'UserPrivates', user: user
-#   parse.findAndDelete 'UserPublics', user: user
-#   parse.findAndDelete 'UserBesties', user: user
-#   parse.findAndDelete 'UserBesties', friend: user
-#   parse.findAndDelete 'Pegg', user: user
-#   parse.findAndDelete 'Pegg', peggee: user
-#   parse.findAndDelete 'Pref', user: user
-#   parse.findAndDelete '_Session', user: user
-#   parse.findAndDelete '_Role', name: "#{userId}_FacebookFriends"
-#   parse.findAndDelete '_Role', name: "#{userId}_Friends"
-#   @delete type: '_User', id: userId
-#   parse.clearHasPreffed {userId}
-#   parse.clearHasPegged {userId}
-# ])
-#   .then (results) => log 'done', userId, results
+  Promise.all([
+    parse.findAndDelete type: 'UserPrivates', field: 'user', value: user
+    parse.findAndDelete type: 'UserPublics', field: 'user', value: user
+    parse.findAndDelete type: 'Bestie', field: 'user', value: user
+    parse.findAndDelete type: 'Bestie', field: 'friend', value: user
+    parse.findAndDelete type: 'Pegg', field: 'user', value: user
+    parse.findAndDelete type: 'Pegg', field: 'peggee', value: user
+    parse.findAndDelete type: 'Pref', field: 'user', value: user
+    parse.findAndDelete type: '_Session', field: 'user', value: user
+    parse.findAndDelete type: '_Role', field: 'name', value: "#{userId}_FacebookFriends"
+    parse.findAndDelete type: '_Role', field: 'name', value: "#{userId}_Friends"
+    parse.delete type: '_User', id: userId
+    parse.clearHasPreffed {userId}
+    parse.clearHasPegged {userId}
+  ])
+  .then (results) => log 'done', userId, results
 
 deleteUser userId: 'yXeUDJ4nLK'

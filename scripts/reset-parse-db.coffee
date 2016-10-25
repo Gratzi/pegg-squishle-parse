@@ -1,12 +1,4 @@
-debug = require 'debug'
-log = debug 'app:log'
-errorLog = debug 'app:error'
-
-fail = (err) ->
-  if typeof err is 'string'
-    err = new Error err
-  errorLog err
-  throw err
+{ fail, pretty, debug, log, errorLog } = require '../lib/common'
 
 parse = require '../lib/pegg-parse'
 request = require 'request-promise'
