@@ -15,9 +15,6 @@ fail = (msg) ->
   errorLog error
   throw error
 
-PARSE_OBJECT_ID = /^[0-z]{8,10}$/
-PARSE_MAX_RESULTS = 1000
-
 PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
 PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
 PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
@@ -32,6 +29,9 @@ wp = new WP (
 )
 
 class PeggParse
+  PARSE_OBJECT_ID: /^[0-z]{8,10}$/
+  PARSE_MAX_RESULTS: 1000
+
   constructor: ->
     Parse.initialize PARSE_APP_ID, null, PARSE_MASTER_KEY
     Parse.serverURL = PARSE_SERVER_URL
@@ -60,6 +60,23 @@ class PeggParse
         log 'message', "got #{type}.#{field}.#{value}"
         debug @pretty result
         result
+
+  getAllBy: ({type, field, value, skip}) ->
+    skip or= 0
+    log 'getting: ', "#{type}.#{field}.#{value}.#{skip}"
+    query = new Parse.Query type
+    query.equalTo field, value
+    query.limit @PARSE_MAX_RESULTS
+    query.skip skip
+    query.find { useMasterKey: true }
+    .then (results) =>
+      log "got: #{results.length}"
+      if results?.length > 0
+        debug @pretty results
+        skip+= @PARSE_MAX_RESULTS
+        @getAllBy {type, field, value, skip}
+        .then (nextResults) =>
+          _.merge results, nextResults
 
   create: ({type, object}) ->
     log 'message', "creating #{type}"
@@ -108,6 +125,17 @@ class PeggParse
         log 'message', "deleted #{type} #{id}"
         debug @pretty result
         result
+
+  findAndDelete: ({type, field, value}) ->
+    @getAllBy {type, field, value}
+    .then (results) =>
+      # make a bunch of sub-promises that resolve when the row is successfully deleted, and
+      # return a promise that resolves iff all of the rows were deleted, otherwise fails
+      Promise.all(
+        for item in results
+          @delete type: type, id: item.objectId
+      )
+
 
   #card =
   #  question: 'Some question'
@@ -361,14 +389,7 @@ class PeggParse
   # #       .then (results) => log 'done', results
   # #       .catch (error) => log 'error', error
   #
-  # findRecursive: (type, query) ->
-  #   @_parse.findAsync type, query
-  #     .then (data) =>
-  #       if data?.results?.length > 0
-  #         log 'fetch', data.results
-  #         query.skip += query.limit
-  #         @findRecursive type, query
-  #
+
   # deleteCard: ({cardId}) ->
   #   unless cardId.match PARSE_OBJECT_ID
   #     return @_error "Invalid card ID: #{cardId}"
@@ -647,20 +668,13 @@ class PeggParse
   #       else
   #         _res
   #
-  # _findAndDelete: (type, conditions) ->
-  #   if _.isEmpty(conditions)
-  #     return @_error "conditions should not be empty"
-  #   # find items for these conditions, and return a promise
-  #   @_parse.findAsync type, where: conditions
-  #     .then (data) =>
-  #       log 'message', "found #{data?.results?.length} #{type} items where #{@_pretty conditions}"
-  #       # make a bunch of sub-promises that resolve when the row is successfully deleted, and
-  #       # return a promise that resolves iff all of the rows were deleted, otherwise fails
-  #       Promise.all(
-  #         for item in data?.results
-  #           @delete type: type, id: item.objectId
-  #       )
-  #
+  #  findRecursive: (type, query) ->
+  #    @_parse.findAsync type, query
+  #    .then (data) =>
+  #      if data?.results?.length > 0
+  #        log 'fetch', data.results
+  #        query.skip += query.limit
+  #        @findRecursive type, query
   #
   # _error: (message) ->
   #   error = { message: message, stack: new Error(message).stack }
