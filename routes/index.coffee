@@ -1,4 +1,11 @@
-{ fail, debug, log, errorLog } = require '../lib/common'
+common = require '../lib/common'
+{ debug, log, errorLog } = require '../lib/common'
+
+fail = (err, res) ->
+  errorLog err
+  if res?
+    res.status(500).send "ERROR\n"
+  common.fail err
 
 request = require 'request-promise'
 express = require 'express'

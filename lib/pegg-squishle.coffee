@@ -30,14 +30,31 @@ class PeggSquishle
   #  ]
   processCard: (postId, categories) =>
     log "creating card from post: #{postId}"
+    post = null
     @fetchPostData postId
+    .then (_post) => post = _post
     .then @fetchImageData
+    .catch (errors) =>
+      errorLog errors.toString()
+      content = post.content
+      if content?.choices?
+        for error in errors
+          if error?.choice?.num?
+            squishleChoice = _.find content.choices, (c) -> c.num is error.choice.num
+            squishleChoice.error = error.message
+      else
+        content = error: errors.toString()
+      debug "updating post with error", content
+      @updatePost postId, JSON.stringify content
+      throw errors
     .then (card) =>
       if categories?
         card.deck = JSON.parse(categories)?[0]
       if card.id?
-        console.log "TODO: implement update"
         @updateCard card
+          .then (result) =>
+            log "card updated: ", pretty result
+            @updatePost postId, JSON.stringify result
       else
         @createCard card
           .then (result) =>
@@ -58,10 +75,13 @@ class PeggSquishle
       unless _.isEmpty result.content?.rendered
         defuckedRenderedContent = entities.decode(result.content.rendered.replace(/<(?:.|\n)*?>/gm, '')).replace(/[“”″]/gm, '"')
         content = JSON.parse(defuckedRenderedContent)
+        if content?
+          post.content = content
         if content?.cardId?
           post.id = content.cardId
         if content?.choices?
           content.choices = _.sortBy content.choices, 'num'
+          _.each content.choices, (c) -> delete c.error if c.error
       for i in [1..4]
         choice = {}
         choice.gifUrl = result["gif#{i}"]
@@ -109,6 +129,11 @@ class PeggSquishle
           choice.image =
             url: result.data.mp4
             source: "http://imgur.com/#{choice.gifId}"
+        unless choice.image.url?
+          error = new Error "ERROR: Invalid Imgur URL for gif #{choice.image.source}"
+          errorLog error
+          error.choice = choice
+          throw error
         choice
 
   fetchGiphyData: (choice) =>
@@ -172,9 +197,9 @@ class PeggSquishle
         choices: _.map card.choices, (choice) => id: choice.id, num: choice.num
       result
 
-  updatePost: (postId, card) =>
-    log "updating post: #{postId} #{card}"
-    wp.posts().id(postId).update(content: card)
+  updatePost: (postId, content) =>
+    log "updating post: #{postId} #{content}"
+    wp.posts().id(postId).update(content: content)
       .catch (err) => console.log err
       .then (result) =>
         console.log result
@@ -209,11 +234,9 @@ class PeggSquishle
       card.ACL = "*": read: true
       parse.update type: 'Card', id: cardId, object: card
     .then =>
-      log "updated card #{cardId}"
       result =
         cardId: cardId
-        choices: _.map card.choices, 'id'
-      log "result:", pretty result
+        choices: _.map card.choices, (choice) => id: choice.id, num: choice.num
       result
 
 
