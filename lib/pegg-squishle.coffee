@@ -5,6 +5,7 @@ request = require 'request-promise'
 WP = require 'wpapi' # https://github.com/WP-API/node-wpapi
 Entities = require('html-entities').AllHtmlEntities # https://www.npmjs.com/package/html-entities
 parse = require '../lib/pegg-parse'
+AWS = require 'aws-sdk'
 
 entities = new Entities()
 
@@ -55,12 +56,34 @@ class PeggSquishle
           .then (result) =>
             log "card updated: ", pretty result
             @updatePost postId, JSON.stringify result
+            @backupImages card.choices
       else
         @createCard card
           .then (result) =>
             log "card created: ", pretty result
             @updatePost postId, JSON.stringify result
+            @backupImages card.choices
             @incrementDeck card.deck
+
+  backupImages: (choices) =>
+    s3 = new AWS.S3()
+    for own id, choice of choices
+      do (id, choice) =>
+        # download image to buffer
+        request.get uri: choice.image.url, encoding: null
+        .then (body) =>
+          log "downloaded image for choice", choice.id
+          # upload to s3
+          s3.putObject {
+            Bucket: 'images.pegg.us'
+            Key: choice.id + '.mp4'
+            Metadata:
+              sourceUrl: choice.image.url
+            Body: body
+          }, (error, data) =>
+            if error? then errorLog "aws error", error, error.stack
+            else log "aws success", data
+        .catch errorLog
 
   fetchPostData: (postId) =>
     log "fetching squishle post details for #{postId}"
