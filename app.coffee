@@ -4,7 +4,9 @@ favicon = require 'serve-favicon'
 logger = require 'morgan'
 cookieParser = require 'cookie-parser'
 bodyParser = require 'body-parser'
+require('dotenv').config()
 routes = require './routes/index'
+
 app = express()
 
 ### redirect to HTTPS in production ###
