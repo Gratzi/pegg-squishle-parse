@@ -19,6 +19,8 @@ wp = new WP (
   auth: true
 )
 
+gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
+
 class PeggSquishle
   #card =
   #  question: 'Some question'
@@ -117,15 +119,14 @@ class PeggSquishle
       return post
 
   fetchImageData: (card) =>
-    gifIdPattern = /[\/-]([^\/?-]+)($|\?)/
     Promise.when(
       for choice in card.choices then do (choice) =>
-        choice.gifId = gifIdPattern.exec(choice.gifUrl)?[1]
-        console.log "gifId: #{choice.gifId}"
-        if choice.gifUrl.indexOf("giphy.com") > -1
-          @fetchGiphyData choice
-        else if choice.gifUrl.indexOf("imgur.com") > -1
-          @fetchImgurData choice
+        if choice.gifUrl.indexOf("imgur.com/a/") > -1
+          @fetchImgurAlbumData choice
+        else if choice.gifUrl.indexOf("imgur.com/gallery/") > -1
+          @fetchImgurGalleryData choice
+        else if choice.gifUrl.indexOf("imgur.com/") > -1
+          @fetchImgurImageData choice
         else
           Promise.as choice
     ).then (choices) =>
@@ -133,46 +134,109 @@ class PeggSquishle
       card.choices = choices
       card
 
-  fetchImgurData: (choice) =>
-    log "fetching imgur details for #{choice.gifId}"
+  fetchImgurAlbumData: (choice) =>
+    log "fetching imgur details for album #{choice.gifUrl}"
+    albumId = gifIdPattern.exec(choice.gifUrl)?[1]
+    console.log "albumId: #{albumId}"
     props =
-      url: 'https://api.imgur.com/3/gallery/' + choice.gifId
+      url: 'https://api.imgur.com/3/album/' + albumId
       headers:
         Authorization: 'Client-ID f2400da11df9695'
       json: true
     request props
       .catch (error) => errorLog error
       .then (result) =>
-#        console.log "IMGUR: " + pretty result
-        if result.data.is_album
-          choice.image =
-            url: result.data.images[0].mp4
-            source: result.data.link
-        else
-          choice.image =
-            url: result.data.mp4
-            source: "http://imgur.com/#{choice.gifId}"
+        debug "IMGUR: " + pretty result
+        unless result?.data?.images?[0]?
+          error = new Error "No result from imgur for album [#{albumId}]"
+          errorLog error
+          error.choice = choice
+          throw error
+        choice.image =
+          url: result.data.images[0].mp4
+          source: choice.gifUrl
         unless choice.image.url?
-          error = new Error "ERROR: Invalid Imgur URL for gif #{choice.image.source}"
+          error = new Error "Invalid Imgur URL for gif #{choice.image.source}"
           errorLog error
           error.choice = choice
           throw error
         choice
 
-  fetchGiphyData: (choice) =>
-    log "fetching giphy details for #{choice.gifId}"
+  fetchImgurGalleryData: (choice) =>
+    log "fetching imgur details for gallery image #{choice.gifUrl}"
+    imageOrAlbumId = gifIdPattern.exec(choice.gifUrl)?[1]
+    console.log "imageOrAlbumId: #{imageOrAlbumId}"
     props =
-      url: 'http://api.giphy.com/v1/gifs/' + choice.gifId
-      qs:
-        api_key: 'dc6zaTOxFJmzC'
+      url: 'https://api.imgur.com/3/gallery/' + imageOrAlbumId
+      headers:
+        Authorization: 'Client-ID f2400da11df9695'
       json: true
     request props
       .catch (error) => errorLog error
       .then (result) =>
-        choice.image =
-          url: result.data.images.original.url
-          source: result.data.source_post_url
+        debug "IMGUR: " + pretty result
+        unless result?
+          error = new Error "No result from imgur for gif [#{imageOrAlbumId}]"
+          errorLog error
+          error.choice = choice
+          throw error
+        if result.data.is_album
+          choice.image =
+            url: result.data.images[0].mp4
+            source: choice.gifUrl
+        else
+          choice.image =
+            url: result.data.mp4
+            source: choice.gifUrl
+        unless choice.image.url?
+          error = new Error "Invalid Imgur URL for gif #{choice.image.source}"
+          errorLog error
+          error.choice = choice
+          throw error
         choice
+
+  fetchImgurImageData: (choice) =>
+    log "fetching imgur details for image #{choice.gifUrl}"
+    imageId = gifIdPattern.exec(choice.gifUrl)?[1]
+    console.log "imageId: #{imageId}"
+    props =
+      url: 'https://api.imgur.com/3/image/' + imageId
+      headers:
+        Authorization: 'Client-ID f2400da11df9695'
+      json: true
+    request props
+      .catch (error) => errorLog error
+      .then (result) =>
+        debug "IMGUR: " + pretty result
+        unless result?.data?
+          error = new Error "No result from imgur for album [#{imageId}]"
+          errorLog error
+          error.choice = choice
+          throw error
+        choice.image =
+          url: result.data.mp4
+          source: choice.gifUrl
+        unless choice.image.url?
+          error = new Error "Invalid Imgur URL for gif #{choice.image.source}"
+          errorLog error
+          error.choice = choice
+          throw error
+        choice
+
+  # fetchGiphyData: (choice) =>
+  #   log "fetching giphy details for #{choice.gifId}"
+  #   props =
+  #     url: 'http://api.giphy.com/v1/gifs/' + choice.gifId
+  #     qs:
+  #       api_key: 'dc6zaTOxFJmzC'
+  #     json: true
+  #   request props
+  #     .catch (error) => errorLog error
+  #     .then (result) =>
+  #       choice.image =
+  #         url: result.data.images.original.url
+  #         source: result.data.source_post_url
+  #       choice
 
   incrementDeck: (deck) =>
     parse.getBy {type: "Deck", field: "name", value: deck}
