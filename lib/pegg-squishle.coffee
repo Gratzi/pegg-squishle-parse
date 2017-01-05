@@ -57,7 +57,10 @@ class PeggSquishle
         @updateCard card
           .then (result) =>
             log "card updated: ", pretty result
-            @updatePost postId, JSON.stringify result
+          # FIX: updating the post causes an infinite loop.
+          # If we need this someday, then find some way to check the request on wp_insert_post action...
+          #   to see if update came from this app or the user hitting the publish button.
+          #   @updatePost postId, JSON.stringify result
             @backupImages card.choices
       else
         @createCard card
