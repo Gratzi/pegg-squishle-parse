@@ -1,0 +1,26 @@
+#!/usr/bin/env coffee
+
+require('dotenv').config()
+require 'shelljs/global'
+readlineSync = require 'readline-sync'
+
+PROD_MONGO_USER = process.env.PROD_MONGO_USER or fail "cannot have an empty PROD_MONGO_USER"
+PROD_MONGO_PASS = process.env.PROD_MONGO_PASS or fail "cannot have an empty PROD_MONGO_PASS"
+PROD_MONGO_HOST = process.env.PROD_MONGO_HOST or fail "cannot have an empty PROD_MONGO_HOST"
+PROD_MONGO_NAME = process.env.PROD_MONGO_NAME or fail "cannot have an empty PROD_MONGO_NAME"
+STAGING_MONGO_USER = process.env.STAGING_MONGO_USER or fail "cannot have an empty STAGING_MONGO_USER"
+STAGING_MONGO_PASS = process.env.STAGING_MONGO_PASS or fail "cannot have an empty STAGING_MONGO_PASS"
+STAGING_MONGO_HOST = process.env.STAGING_MONGO_HOST or fail "cannot have an empty STAGING_MONGO_HOST"
+STAGING_MONGO_NAME = process.env.STAGING_MONGO_NAME or fail "cannot have an empty STAGING_MONGO_NAME"
+
+response = readlineSync.question """
+This will:
+- take a mongodump of production Parse database
+- drop staging database and recreate it from the dump
+Proceed? [y/N] """
+
+if response is 'y'
+  rm '-rf', "dump/#{PROD_MONGO_NAME}/"
+  exec "mongodump -u #{PROD_MONGO_USER} -p #{PROD_MONGO_PASS} -h #{PROD_MONGO_HOST} -d #{PROD_MONGO_NAME}"
+  exec "mongorestore -u #{STAGING_MONGO_USER} -p #{STAGING_MONGO_PASS} -h #{STAGING_MONGO_HOST} --drop -d #{STAGING_MONGO_NAME} dump/#{PROD_MONGO_NAME}/"
+  rm '-rf', "dump/#{PROD_MONGO_NAME}/"

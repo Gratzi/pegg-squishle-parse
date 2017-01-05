@@ -1,3 +1,5 @@
+#!/usr/bin/env coffee
+
 # Delete:
 # User
 # UserPrivates
@@ -15,6 +17,7 @@ Promise = require('parse/node').Promise
 parse = require '../lib/pegg-parse'
 request = require 'request-promise'
 
+USER_ID = process.env.USER_ID or fail "cannot have an empty USER_ID"
 PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
 PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
 PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
@@ -43,4 +46,4 @@ deleteUser = ({userId}) ->
   ])
   .then (results) => log 'done', userId, results
 
-deleteUser userId: 'yXeUDJ4nLK'
+deleteUser userId: USER_ID

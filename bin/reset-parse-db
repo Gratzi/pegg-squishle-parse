@@ -1,0 +1,146 @@
+#!/usr/bin/env coffee
+
+{ fail, pretty, debug, log, errorLog } = require '../lib/common'
+
+require('dotenv').config()
+readlineSync = require 'readline-sync'
+parse = require '../lib/pegg-parse'
+request = require 'request-promise'
+
+PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
+PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
+PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
+
+deleteAll = (className) ->
+  log "deleting all #{className}s"
+  args = arguments
+  headers = {
+    'Content-Type': 'application/json'
+    'X-Parse-Application-Id': PARSE_APP_ID
+    'X-Parse-Master-Key': PARSE_MASTER_KEY
+  }
+  request
+    method: 'DELETE'
+    headers: headers
+    url: "#{PARSE_SERVER_URL}/purge/#{className}"
+    json: true
+  .then (body) -> log body
+  .catch (err) -> errorLog "deleteAll", args, err
+
+addField = (className, fieldName, type) ->
+  log "adding field #{className}:#{fieldName}"
+  args = arguments
+  headers = {
+    'Content-Type': 'application/json'
+    'X-Parse-Application-Id': PARSE_APP_ID
+    'X-Parse-Master-Key': PARSE_MASTER_KEY
+  }
+  data =
+    className: className
+    fields:
+      "#{fieldName}":
+        type: type
+  request
+    method: 'PUT'
+    headers: headers
+    body: data
+    url: "#{PARSE_SERVER_URL}/schemas/#{className}"
+    json: true
+  .then (body) -> log body
+  .catch (err) -> errorLog "addField", args, err
+
+deleteField = (className, fieldName) ->
+  log "deleting field #{className}:#{fieldName}"
+  args = arguments
+  headers = {
+    'Content-Type': 'application/json'
+    'X-Parse-Application-Id': PARSE_APP_ID
+    'X-Parse-Master-Key': PARSE_MASTER_KEY
+  }
+  data =
+    className: className
+    fields:
+      "#{fieldName}":
+        __op: "Delete"
+  request
+    method: 'PUT'
+    headers: headers
+    body: data
+    url: "#{PARSE_SERVER_URL}/schemas/#{className}"
+    json: true
+  .then (body) -> log body
+  .catch (err) -> errorLog "deleteField", args, err
+
+clearField = (className, fieldName, type) ->
+  deleteField className, fieldName
+  .then -> addField className, fieldName, type
+
+resetDbPreservingUsers = ->
+  response = readlineSync.question """
+    Warning! This will:
+    - delete all from Pegg
+    - delete all from Bestie
+    - delete all from _Session
+    - delete all from Pref
+    - clear field hasPreffed from Card
+    - clear field prefCount from Choice
+    - clear fields prefCounts, prefCount, peggCounts, peggCount, failCount, lastActiveDate from _User
+
+    Proceed? [y/N] """
+  if response is 'y'
+    deleteAll 'Pegg'
+    deleteAll 'Bestie'
+    deleteAll '_Session'
+    deleteAll 'Pref' # XXX except cosmic unicorn!
+    clearField 'Card', 'hasPreffed', 'Array' # XXX except cosmic unicorn!
+    clearField 'Choice', 'prefCount', 'Number'
+    clearField '_User', 'prefCounts', 'Object'
+    clearField '_User', 'prefCount', 'Number'
+    clearField '_User', 'peggCounts', 'Object'
+    clearField '_User', 'peggCount', 'Number'
+    clearField '_User', 'failCount', 'Number'
+    clearField '_User', 'lastActiveDate', 'Number'
+
+resetEntireDb = ->
+  response = readlineSync.question """
+    Warning! This will:
+    - delete all from Pegg
+    - delete all from Bestie
+    - delete all from _Session
+    - delete all from Pref
+    - delete all from _User
+    - delete all from UserPrivates
+    - delete all from UserPublics
+    - delete all from _Role
+    - delete all from Feedback
+    - clear field hasPreffed from Card
+    - clear field prefCount from Choice
+
+    Proceed? [y/N] """
+  if response is 'y'
+    deleteAll 'Pegg'
+    deleteAll 'Bestie'
+    deleteAll '_Session'
+    deleteAll 'Pref'
+    deleteAll '_User'
+    deleteAll 'UserPrivates'
+    deleteAll 'UserPublics'
+    deleteAll 'Feedback'
+    deleteAll '_Role'
+    clearField 'Card', 'hasPreffed', 'Array'
+    clearField 'Choice', 'prefCount', 'Number'
+
+
+### MAIN ###
+
+if /pegg\./i.test PARSE_SERVER_URL
+  console.error "Woah there Nelly. PARSE_SERVER_URL (#{PARSE_SERVER_URL}) looks like a production url... too close for comfort!"
+  process.exit 1
+
+console.log "Server: #{PARSE_SERVER_URL}"
+
+response = readlineSync.question """This will reset the Parse database. Would you like to delete all users as well? [y/N] """
+if response is 'y'
+  resetEntireDb()
+else
+  resetDbPreservingUsers()
