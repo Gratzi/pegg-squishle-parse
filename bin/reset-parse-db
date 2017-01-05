@@ -3,6 +3,7 @@
 { fail, pretty, debug, log, errorLog } = require '../lib/common'
 
 require('dotenv').config()
+require 'shelljs/global'
 readlineSync = require 'readline-sync'
 parse = require '../lib/pegg-parse'
 request = require 'request-promise'
@@ -10,6 +11,10 @@ request = require 'request-promise'
 PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
 PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
 PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
+STAGING_MONGO_USER = process.env.STAGING_MONGO_USER or fail "cannot have an empty STAGING_MONGO_USER"
+STAGING_MONGO_PASS = process.env.STAGING_MONGO_PASS or fail "cannot have an empty STAGING_MONGO_PASS"
+STAGING_MONGO_HOST = process.env.STAGING_MONGO_HOST or fail "cannot have an empty STAGING_MONGO_HOST"
+STAGING_MONGO_NAME = process.env.STAGING_MONGO_NAME or fail "cannot have an empty STAGING_MONGO_NAME"
 
 deleteAll = (className) ->
   log "deleting all #{className}s"
@@ -115,20 +120,23 @@ resetEntireDb = ->
     - delete all from Feedback
     - clear field hasPreffed from Card
     - clear field prefCount from Choice
+    - restore Cosmic Unicorn user records from backup in dump/cosmic_user
 
     Proceed? [y/N] """
   if response is 'y'
-    deleteAll 'Pegg'
+    # Note: these are redundant given that the mongorestore call below drops them
+    # deleteAll '_User'
+    # deleteAll '_Role'
+    # deleteAll 'Pegg'
+    # deleteAll 'UserPrivates'
+    # deleteAll 'UserPublics'
     deleteAll 'Bestie'
     deleteAll '_Session'
     deleteAll 'Pref'
-    deleteAll '_User'
-    deleteAll 'UserPrivates'
-    deleteAll 'UserPublics'
     deleteAll 'Feedback'
-    deleteAll '_Role'
     clearField 'Card', 'hasPreffed', 'Array'
     clearField 'Choice', 'prefCount', 'Number'
+    exec "mongorestore -u #{STAGING_MONGO_USER} -p #{STAGING_MONGO_PASS} -h #{STAGING_MONGO_HOST} --drop -d #{STAGING_MONGO_NAME} dump/cosmic_user/"
 
 
 ### MAIN ###
