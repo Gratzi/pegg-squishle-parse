@@ -3,6 +3,7 @@
 require('dotenv').config()
 require 'shelljs/global'
 readlineSync = require 'readline-sync'
+{ fail, pretty, debug, log, errorLog } = require '../lib/common'
 
 PROD_MONGO_USER = process.env.PROD_MONGO_USER or fail "cannot have an empty PROD_MONGO_USER"
 PROD_MONGO_PASS = process.env.PROD_MONGO_PASS or fail "cannot have an empty PROD_MONGO_PASS"
