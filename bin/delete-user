@@ -12,12 +12,16 @@
 # Pref hasPegged for user
 
 { fail, pretty, debug, log, errorLog } = require '../lib/common'
+_ = require 'lodash'
+
+require('dotenv').config()
+require 'shelljs/global'
+readlineSync = require 'readline-sync'
 
 Promise = require('parse/node').Promise
 parse = require '../lib/pegg-parse'
 request = require 'request-promise'
 
-USER_ID = process.env.USER_ID or fail "cannot have an empty USER_ID"
 PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
 PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
 PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
@@ -46,4 +50,10 @@ deleteUser = ({userId}) ->
   ])
   .then (results) => log 'done', userId, results
 
-deleteUser userId: USER_ID
+
+### MAIN ###
+
+console.log "Server: #{PARSE_SERVER_URL}"
+userId = readlineSync.question "UserID to delete: "
+unless _.isEmpty userId
+  deleteUser userId: userId
