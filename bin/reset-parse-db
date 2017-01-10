@@ -124,19 +124,19 @@ resetEntireDb = ->
 
     Proceed? [y/N] """
   if response is 'y'
-    # Note: these are redundant given that the mongorestore call below drops them
+    exec "mongorestore -u #{STAGING_MONGO_USER} -p #{STAGING_MONGO_PASS} -h #{STAGING_MONGO_HOST} --drop -d #{STAGING_MONGO_NAME} dump/cosmic_user/"
+    # Note: these are redundant given that the mongorestore call above drops them
     # deleteAll '_User'
     # deleteAll '_Role'
-    # deleteAll 'Pegg'
     # deleteAll 'UserPrivates'
     # deleteAll 'UserPublics'
+    # deleteAll 'Pref'
     deleteAll 'Bestie'
     deleteAll '_Session'
-    deleteAll 'Pref'
+    deleteAll 'Pegg'
     deleteAll 'Feedback'
     clearField 'Card', 'hasPreffed', 'Array'
     clearField 'Choice', 'prefCount', 'Number'
-    exec "mongorestore -u #{STAGING_MONGO_USER} -p #{STAGING_MONGO_PASS} -h #{STAGING_MONGO_HOST} --drop -d #{STAGING_MONGO_NAME} dump/cosmic_user/"
 
 
 ### MAIN ###
