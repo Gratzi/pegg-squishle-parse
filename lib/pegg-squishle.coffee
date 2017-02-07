@@ -41,10 +41,13 @@ class PeggSquishle
       errorLog errors.toString()
       content = post.content
       if content?.choices?
-        for error in errors
-          if error?.choice?.num?
-            squishleChoice = _.find content.choices, (c) -> c.num is error.choice.num
-            squishleChoice.error = error.message
+        if errors.isArray
+          for error in errors
+            if error?.choice?.num?
+              squishleChoice = _.find content.choices, (c) -> c.num is error.choice.num
+              squishleChoice.error = error.message
+        else
+          content.error = errors.toString()
       else
         content = error: errors.toString()
       debug "updating post with error", content
