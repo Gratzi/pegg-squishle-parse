@@ -131,7 +131,10 @@ class PeggSquishle
         else if choice.gifUrl.indexOf("imgur.com/") > -1
           @fetchImgurImageData choice
         else
-          Promise.as choice
+          error = new Error "Invalid URL for gif #{choice.gifUrl}"
+          errorLog error
+          error.choice = choice
+          throw error
     ).then (choices) =>
       console.log pretty choices
       card.choices = choices
