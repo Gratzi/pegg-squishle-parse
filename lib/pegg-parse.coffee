@@ -44,18 +44,19 @@ class PeggParse
         debug pretty result
         result
 
-  getAllBy: ({type, field, value, skip}) ->
+  getAllBy: ({type, field, value, include, skip}) ->
     debug "getAllBy: #{pretty arguments[0]}"
     skip or= 0
     lastResults = []
     query = new Parse.Query type
     query.equalTo field, value
+    query.include include
     query.limit @PARSE_MAX_RESULTS
     query.skip skip
     query.find { useMasterKey: true }
     .then (results) =>
+      debug "got #{results.length} results for #{type}.#{field} (#{JSON.stringify value})"
       if results?.length > 0
-        debug "got #{results.length} results for #{type}.#{field} (#{JSON.stringify value})"
         if results.length is @PARSE_MAX_RESULTS
           skip+= @PARSE_MAX_RESULTS
           lastResults = results

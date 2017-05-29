@@ -1,0 +1,40 @@
+#!/usr/bin/env coffee
+
+# Update UserPublics for every user
+
+{ fail, pretty, debug, log, errorLog } = require '../lib/common'
+_ = require 'lodash'
+
+require('dotenv').config()
+require 'shelljs/global'
+readlineSync = require 'readline-sync'
+
+Promise = require('parse/node').Promise
+parse = require '../lib/pegg-parse'
+request = require 'request-promise'
+
+PARSE_APP_ID = process.env.PARSE_APP_ID or fail "cannot have an empty PARSE_APP_ID"
+PARSE_MASTER_KEY = process.env.PARSE_MASTER_KEY or fail "cannot have an empty PARSE_MASTER_KEY"
+PARSE_SERVER_URL = process.env.PARSE_SERVER_URL or fail "cannot have an empty PARSE_SERVER_URL"
+
+log PARSE_APP_ID
+log PARSE_MASTER_KEY
+log PARSE_SERVER_URL
+
+updateUsersFacebookId = () ->
+  log 'updating all userPublics with user.facebook_id'
+
+  parse.getAllBy type: 'UserPublics', include: 'user'
+  .then (results) =>
+    resultsWithFBIds = _.filter results, (res) => res.get('user').get('facebook_id')?
+    updatedResults = _.map resultsWithFBIds, (res) =>
+      user = res.get('user')
+      parse.update type: 'UserPublics', id: res.id, object: { facebook_id: user.get('facebook_id') }
+    # Promise.all updatedResults
+    # .then (res) =>
+    #   log 'done', res
+
+### MAIN ###
+
+console.log "Server: #{PARSE_SERVER_URL}"
+updateUsersFacebookId()
